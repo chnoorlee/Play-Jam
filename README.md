@@ -2,6 +2,8 @@
 
 原创 2.5D 叙事解谜 Demo。潮水即将淹没白沙邮局，邮差许渡在“此刻”与“回声”之间投递三封迟到的信，再决定记忆的去向。
 
+[直接在线游玩](https://chnoorlee.github.io/Play-Jam/)：打开网页即可开始，无需安装。
+
 ![游戏实景](artifacts/gameplay-desktop.png)
 
 ## 运行
@@ -28,6 +30,12 @@ npm run dev
 ```
 
 开发服务器启动后，可在另一终端运行 `npx playwright install chromium` 和 `npm run test:e2e`。已保存的自动化验证记录见 [验证说明](docs/VERIFICATION.zh-CN.md)；真实设备帧率与真人体验仍待验证，建议开启浏览器硬件加速。
+
+## 自动部署
+
+网站由 GitHub Pages 托管。每次将更新提交并推送到 `main`，GitHub Actions 会自动安装依赖、构建、运行单元测试及正式构建的浏览器冒烟测试，通过后更新同一个游玩地址。发布失败时，线上保留上次成功版本。
+
+[查看部署状态或手动重新发布](https://github.com/chnoorlee/Play-Jam/actions/workflows/deploy.yml)。工作流见 [deploy.yml](.github/workflows/deploy.yml)，不需要额外的托管密钥。构建产物包含项目及第三方许可证。玩家刷新网页即可加载已发布的新版；存档保存在当前浏览器中。
 
 ## 文档与许可
 

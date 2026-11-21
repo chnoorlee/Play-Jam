@@ -4,6 +4,8 @@
 
 ## 启动
 
+在线版：[https://chnoorlee.github.io/Play-Jam/](https://chnoorlee.github.io/Play-Jam/)。玩家直接打开链接即可游玩，无需安装 Node.js。使用支持 WebGL 的现代浏览器，建议开启硬件加速。
+
 从 GitHub 克隆的源码不包含构建产物，需要先安装 Node.js 22.12+ 并在项目目录运行：
 
 ```powershell
@@ -56,3 +58,9 @@ npm run dev
 开发服务器启动后，另开终端运行 `npm run test:e2e`。若 Playwright 尚未安装 Chromium，先运行 `npx playwright install chromium`。端到端测试默认访问 `http://127.0.0.1:5173`，可用环境变量 `GAME_URL` 指定开发地址。测试桥接只存在于开发构建，正式构建不暴露故事状态。
 
 源码：`src/world.js` 场景与寻路；`src/story.js` 剧情与存档；`src/main.js` 交互；`src/audio.js` 合成声音；`src/style.css` 界面。修改后重新执行 `npm run build`，再用 `start.cmd` 运行新版本。
+
+## 在线发布与更新
+
+网站通过 [GitHub Actions](https://github.com/chnoorlee/Play-Jam/actions/workflows/deploy.yml) 自动部署至 GitHub Pages。以后开发完成并把提交推送到 `main`，工作流会自动构建、运行单元与服务器测试、检查正式版浏览器渲染及基本交互，通过后更新在线版。失败时不会发布，线上保留上次成功版本；可以在 Actions 页面查看日志或手动运行工作流。
+
+游玩地址保持不变，已打开的页面刷新后加载新版。本地修改需要提交并推送后才会发布。网站没有在线账号，存档属于当前浏览器及网站地址，本地版本与在线版不共享存档。

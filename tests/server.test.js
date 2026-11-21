@@ -25,7 +25,7 @@ test('portable server serves the built game and rejects requests outside dist', 
     assert.equal(asset.status, 200);
     assert.match(asset.headers.get('content-type'), /javascript/);
     assert.equal((await fetch(`${url}/missing.txt`)).status, 404);
-    assert.equal((await fetch(`${url}/..%5cpackage.json`)).status, 403);
+    assert.equal((await fetch(`${url}/%2e%2e%2fpackage.json`)).status, 403);
   } finally {
     const exited = once(child, 'exit');
     child.kill();
