@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#a7d4ce" />
+    <meta name="description" content="余信：一座即将沉没的邮局，三封迟到的信。原创 2.5D 叙事解谜游戏。" />
+    <title>余信 · The Last Post</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="world"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <header class="hud">
+        <div class="identity"><span class="brand-mark" aria-hidden="true"><i data-lucide="mail"></i></span><div><h1>余信</h1><span class="english-title">THE LAST POST</span></div></div>
+        <div class="chapter"><span class="eyebrow">白沙邮局 · 最后一夜</span><span id="chapter-text">未送达的，终将抵达。</span></div>
+        <nav aria-label="游戏菜单">
+          <button id="journal-button" class="icon-button" aria-label="信笺簿" data-tooltip="信笺簿 · J"><i data-lucide="book-open"></i><span id="journal-dot" class="notification" hidden></span></button>
+          <button id="audio-button" class="icon-button" aria-label="开启声音" data-tooltip="声音"><i data-lucide="volume-x"></i></button>
+          <button id="pause-button" class="icon-button" aria-label="暂停" data-tooltip="暂停 · Esc"><i data-lucide="pause"></i></button>
+        </nav>
+      </header>
+      <aside class="location-caption" aria-hidden="true"><span class="tiny-line"></span><span>白沙群岛</span><span class="coordinates">24° 36′ N &nbsp; 118° 04′ E</span></aside>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <footer class="game-footer">
+        <div class="delivery-status"><span class="eyebrow">待寄之事</span><p id="objective">与守夜人见面</p><div id="stamps" class="stamps" aria-label="投递进度"></div></div>
+        <div class="world-actions"><button id="interact-button" class="interact-button" hidden><i data-lucide="message-circle"></i><span>交谈</span></button><button id="phase-button" class="phase-button" aria-label="切换至回声"><i data-lucide="eclipse"></i><span><small>潮汐之间</small><strong id="phase-label">此刻</strong></span><i class="phase-arrow" data-lucide="arrow-left-right"></i></button></div>
+      </footer>
+      <section id="intro" class="intro-overlay" aria-label="开始游戏">
+        <div class="intro-content"><p class="intro-kicker">一封写给未曾告别的人</p><h2>余信<span>THE LAST POST</span></h2><p class="intro-story">明早，这座邮局就会沉入海底。<br>而你，还有三封信没有送达。</p><button id="start-button" class="primary-button"><span>开始投递</span><i data-lucide="arrow-up-right"></i></button><button id="continue-button" class="text-button" hidden>继续未完的旅程 <i data-lucide="arrow-right"></i></button></div><span class="intro-edition">白沙邮局 · 叙事解谜 / 第一章</span>
+      </section>
+      <section id="dialogue" class="dialogue" aria-label="故事对话" aria-live="polite" hidden></section>
+      <div id="modal-backdrop" class="modal-backdrop" hidden></div>
+      <section id="journal" class="journal modal" aria-modal="true" role="dialog" aria-labelledby="journal-title" hidden></section>
+      <section id="pause" class="pause-modal modal" aria-modal="true" role="dialog" aria-labelledby="pause-title" hidden></section>
+      <section id="ending" class="ending-overlay" aria-labelledby="ending-title" hidden></section>
+      <div id="load-error" class="load-error" hidden></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

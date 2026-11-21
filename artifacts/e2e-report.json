@@ -1,0 +1,66 @@
+{
+  "testedAt": "2026-11-21T06:00:25.525Z",
+  "baseURL": "http://127.0.0.1:5173",
+  "checks": [
+    {
+      "name": "Animated nonblank 2.5D scene",
+      "detail": {
+        "drawCalls": 128,
+        "triangles": 78313
+      }
+    },
+    {
+      "name": "Canvas pixel diversity",
+      "detail": 246
+    },
+    {
+      "name": "Keyboard moves the character"
+    },
+    {
+      "name": "Puzzle cannot resolve before its clue"
+    },
+    {
+      "name": "Clock clue, mechanism and human decision"
+    },
+    {
+      "name": "Echo-only greenhouse puzzle and choice"
+    },
+    {
+      "name": "Both time layers navigable and station letter deliverable"
+    },
+    {
+      "name": "Save and continue restore all deliveries and choices"
+    },
+    {
+      "name": "Ending text export downloads the actual story and disclosure"
+    },
+    {
+      "name": "Landscape ending title and actions reachable by scrolling"
+    },
+    {
+      "name": "All three endings reached through actual UI and walking"
+    },
+    {
+      "name": "Pause prevents movement"
+    },
+    {
+      "name": "Viewport 390x844 controls and scene fit"
+    },
+    {
+      "name": "Viewport 844x390 controls and scene fit"
+    },
+    {
+      "name": "Viewport 1920x1080 controls and scene fit"
+    },
+    {
+      "name": "Audio toggle resumes and suspends sound"
+    },
+    {
+      "name": "Touch input walks to a clue and reads it on a mobile browser"
+    },
+    {
+      "name": "No browser runtime or console errors"
+    }
+  ],
+  "errors": []
+}

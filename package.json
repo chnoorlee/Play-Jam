@@ -1,0 +1,24 @@
+{
+  "name": "the-last-post",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An original 2.5D narrative puzzle game: The Last Post",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node tests/game.e2e.js"
+  },
+  "dependencies": {
+    "lucide": "^0.468.0",
+    "pathfinding": "0.4.18",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "pngjs": "^7.0.0",
+    "vite": "8.3.8"
+  }
+}

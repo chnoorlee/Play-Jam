@@ -1,0 +1,13 @@
+{
+  "testedAt": "2026-11-21T06:13:31.365Z",
+  "errors": [],
+  "requests": [
+    "http://127.0.0.1:64559/",
+    "http://127.0.0.1:64559/assets/index-D_o8l23H.js",
+    "http://127.0.0.1:64559/assets/index-B5x0Vncf.css"
+  ],
+  "passed": true,
+  "noDevelopmentBridge": true,
+  "localResourcesOnly": true,
+  "canvasColors": 287
+}
