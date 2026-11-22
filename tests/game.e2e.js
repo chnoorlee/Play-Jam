@@ -62,8 +62,13 @@ try {
   await page.click('#zoom-in');
   await page.waitForFunction(() => window.__game.getWorld().renderZoom > 1.15);
   assert((await page.evaluate(() => window.__game.getWorld())).zoom > 1);
+  for (let n = 0; n < 3; n++) await page.click('#zoom-in');
+  assert.equal((await page.evaluate(() => window.__game.getWorld())).zoom, 1.8);
+  assert(await page.locator('#zoom-in').isDisabled());
+  await page.click('#zoom-out');
   await page.click('#zoom-reset');
   await page.waitForFunction(() => window.__game.getWorld().renderZoom < 1.01);
+  assert(await page.locator('#zoom-out').isDisabled());
   check('Camera zoom follows the character and returns to the overview');
   await page.click('#settings-button');
   await page.selectOption('#quality-setting', 'low');

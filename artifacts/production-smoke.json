@@ -1,10 +1,10 @@
 {
-  "testedAt": "2026-11-22T04:04:21.392Z",
+  "testedAt": "2026-11-22T04:15:45.572Z",
   "errors": [],
   "requests": [
-    "http://127.0.0.1:51245/",
-    "http://127.0.0.1:51245/assets/index-DKn8byWQ.js",
-    "http://127.0.0.1:51245/assets/index-D9aRGVfe.css"
+    "http://127.0.0.1:55173/",
+    "http://127.0.0.1:55173/assets/index-UWSpjwt3.js",
+    "http://127.0.0.1:55173/assets/index-D9aRGVfe.css"
   ],
   "passed": true,
   "noDevelopmentBridge": true,

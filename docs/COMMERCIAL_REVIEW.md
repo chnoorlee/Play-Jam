@@ -24,7 +24,7 @@
 
 ## 当前验证状态
 
-这张表记录 2026-11-22 已取得的最终本地复测。完整浏览器报告为 [e2e-report.json](../artifacts/e2e-report.json)，记录时间 `2026-11-22T04:05:17.861Z`，共 25 个通过项、错误记录为空。完整结果见 [验证记录](VERIFICATION.zh-CN.md)；线上发布另以对应提交、[GitHub Actions 结果](https://github.com/chnoorlee/Play-Jam/actions/workflows/deploy.yml) 和在线检查判断。本地通过不代表有人类体验或市场证据。
+这张表记录 2026-11-22 已取得的最终本地复测。完整浏览器报告为 [e2e-report.json](../artifacts/e2e-report.json)，记录时间 `2026-11-22T04:15:05.680Z`，共 25 个通过项、错误记录为空。完整结果见 [验证记录](VERIFICATION.zh-CN.md)；线上发布另以对应提交、[GitHub Actions 结果](https://github.com/chnoorlee/Play-Jam/actions/workflows/deploy.yml) 和在线检查判断。本地通过不代表有人类体验或市场证据。
 
 | 改动 | 当前证据 | 状态及边界 |
 | --- | --- | --- |

@@ -275,7 +275,7 @@ function exportPostcard(ending) {
 }
 
 function setZoom(value) {
-  zoom = world?.setZoom(value) ?? 1;
+  zoom = world?.setZoom(Math.round(value * 10) / 10) ?? 1;
   $('#zoom-in').disabled = zoom >= 1.8;
   $('#zoom-out').disabled = zoom <= 1;
   $('#zoom-reset').disabled = zoom === 1;
