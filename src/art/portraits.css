@@ -1,0 +1,19 @@
+.speaker-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.speaker-portrait {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #a4916d;
+  background: #e9d9b5;
+  object-fit: cover;
+}
+
+@media (max-height: 500px) {
+  .speaker-portrait { width: 38px; height: 38px; }
+}

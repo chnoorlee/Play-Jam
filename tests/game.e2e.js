@@ -1,10 +1,12 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PNG } from 'pngjs';
 
 const baseURL = process.env.GAME_URL || 'http://127.0.0.1:5173';
-await mkdir('artifacts', { recursive: true });
+const artifactDir = process.env.ARTIFACT_DIR || 'artifacts';
+await mkdir(artifactDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const errors = [];
 const report = { testedAt: new Date().toISOString(), baseURL, checks: [], errors };
@@ -12,7 +14,14 @@ const check = (name, detail) => { report.checks.push({ name, detail }); console.
 const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
 page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-const screen = async name => page.screenshot({ path: `artifacts/${name}.png` });
+const screen = async name => page.screenshot({ path: join(artifactDir, `${name}.png`) });
+const verifyPortrait = async name => {
+  assert.match(await page.locator('#dialogue .speaker').textContent(), new RegExp(name));
+  const portrait = page.locator('#dialogue .speaker-portrait');
+  await portrait.waitFor({ state: 'visible' });
+  await portrait.evaluate(image => image.decode());
+  assert.equal(await portrait.evaluate(image => image.naturalWidth), 256);
+};
 const select = async action => {
   await page.locator(`#dialogue [data-action="${action}"]`).click();
   await page.waitForTimeout(120);
@@ -39,6 +48,8 @@ try {
   await page.waitForFunction(() => window.__game?.getWorld()?.frames > 10);
   await screen('intro-desktop');
   await page.click('#start-button');
+  await verifyPortrait('沈伯');
+  await screen('portrait-desktop');
   await select('begin'); await select('close');
   await assertLayout();
   const first = await page.evaluate(() => window.__game.getWorld());
@@ -143,7 +154,7 @@ try {
   check('Three-stage hints preserve the active puzzle and use its current values');
   for (const [index, count] of [[0, 3], [1, 2]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
   await screen('clock-puzzle');
-  await select('resolve:clock'); await select('decision:clock:truth'); await close();
+  await select('resolve:clock'); await verifyPortrait('曹遥'); await select('decision:clock:truth'); await close();
   assert.equal((await page.evaluate(() => window.__game.getState())).solved.clock, true);
   check('Clock clue, mechanism and human decision');
 
@@ -156,7 +167,7 @@ try {
   for (const [index, count] of [[0, 1], [1, 2], [2, 3]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
   assert.equal(await page.locator('.light-route path.lit').count(), 4);
   await screen('greenhouse-light-route');
-  await select('resolve:greenhouse'); await select('decision:greenhouse:share'); await close();
+  await select('resolve:greenhouse'); await verifyPortrait('叶青'); await select('decision:greenhouse:share'); await close();
   check('Echo-only greenhouse puzzle and choice');
 
   await visit('echo-stamp'); await select('stamp:echo'); await close();
@@ -167,8 +178,10 @@ try {
   assert.equal(await page.locator('.address-slots .filled').count(), 1);
   await select('sequence:platform:reset');
   for (const fragment of ['north', 'closed', 'south', 'reunion']) await select(`sequence:platform:${fragment}`);
+  await verifyPortrait('阿岚');
   await select('decision:platform:farewell'); await close();
   check('Both time layers navigable and station letter deliverable');
+  check('All four illustrated character portraits display and decode');
   await page.click('#journal-button');
   await page.click('#tab-clues');
   assert((await page.locator('.journal-entry').count()) >= 7);
@@ -204,9 +217,17 @@ try {
       const postcardEvent = page.waitForEvent('download'); await page.click('#postcard-button');
       const postcard = await postcardEvent, postcardStream = await postcard.createReadStream(), chunks = [];
       for await (const chunk of postcardStream) chunks.push(chunk);
-      const postcardImage = PNG.sync.read(Buffer.concat(chunks));
+      const postcardBuffer = Buffer.concat(chunks);
+      const postcardImage = PNG.sync.read(postcardBuffer);
       assert.equal(postcardImage.width, 1280); assert.equal(postcardImage.height, 900);
-      check('Personal ending postcard exports a valid PNG');
+      const colors = new Set();
+      for (let y = 60; y < 700; y += 8) for (let x = 48; x < 590; x += 8) {
+        const index = (y * postcardImage.width + x) * 4;
+        colors.add(`${postcardImage.data[index] >> 4},${postcardImage.data[index + 1] >> 4},${postcardImage.data[index + 2] >> 4}`);
+      }
+      assert(colors.size > 40, 'postcard includes the rendered harbor illustration');
+      await writeFile(join(artifactDir, 'postcard.png'), postcardBuffer);
+      check('Personal ending postcard exports a valid illustrated PNG');
     }
     if (ending === 'carry') {
       await page.setViewportSize({ width: 844, height: 390 });
@@ -256,7 +277,7 @@ try {
   await mobile.locator('[data-action="read:clock"]').waitFor({ timeout: 25000 });
   await mobile.locator('[data-action="read:clock"]').tap();
   assert((await mobile.evaluate(() => window.__game.getState())).clues.includes('clock'));
-  await mobile.screenshot({ path: 'artifacts/touch-clue.png' });
+  await mobile.screenshot({ path: join(artifactDir, 'touch-clue.png') });
   await touch.close();
   check('Touch input walks to a clue and reads it on a mobile browser');
   assert.deepEqual(errors, []);
@@ -267,6 +288,6 @@ try {
   console.error(error);
   process.exitCode = 1;
 } finally {
-  await writeFile('artifacts/e2e-report.json', JSON.stringify(report, null, 2));
+  await writeFile(join(artifactDir, 'e2e-report.json'), JSON.stringify(report, null, 2));
   await browser.close();
 }

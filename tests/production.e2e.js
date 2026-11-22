@@ -2,12 +2,14 @@ import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PNG } from 'pngjs';
 
 const child = spawn(process.execPath, ['server.mjs'], { env: { ...process.env, PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
 let browser;
 const errors = [], requests = [];
+const artifactDir = process.env.ARTIFACT_DIR || 'artifacts';
 const report = { testedAt: new Date().toISOString(), errors, requests };
 try {
   const url = await new Promise((resolve, reject) => {
@@ -29,6 +31,12 @@ try {
   await page.waitForFunction(() => !!document.querySelector('canvas'));
   assert.equal(await page.evaluate(() => typeof window.__game), 'undefined');
   await page.click('#start-button');
+  const portrait = page.locator('.speaker-portrait');
+  await portrait.evaluate(image => image.decode());
+  const imageURL = await portrait.evaluate(image => image.currentSrc);
+  const imageResponse = await page.request.get(imageURL);
+  assert.equal(imageResponse.status(), 200);
+  assert.equal(imageResponse.headers()['content-type'], 'image/webp');
   await page.click('[data-action="begin"]');
   await page.click('[data-action="close"]');
   await page.click('#phase-button');
@@ -52,5 +60,6 @@ try {
   const exited = once(child, 'exit');
   child.kill();
   await exited;
-  await writeFile('artifacts/production-smoke.json', JSON.stringify(report, null, 2));
+  await mkdir(artifactDir, { recursive: true });
+  await writeFile(join(artifactDir, 'production-smoke.json'), JSON.stringify(report, null, 2));
 }

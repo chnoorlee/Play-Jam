@@ -3,7 +3,13 @@ import { createWorld } from './world.js';
 import { createState, normalizeSave, getChapter, getObjective, getJournal, getHint, getReceipts, interact, choose, setPhase, adjustDial, adjustMirror, getPuzzle, getEnding } from './story.js';
 import { createAudio } from './audio.js';
 import { defaultSettings, normalizeSettings, encodeBackup, decodeBackup } from './settings.js';
+import harborCover from './art/harbor-cover.webp';
+import shenPortrait from './art/portraits/shen.webp';
+import caoPortrait from './art/portraits/cao.webp';
+import yePortrait from './art/portraits/ye.webp';
+import lanPortrait from './art/portraits/lan.webp';
 import './style.css';
+import './art/portraits.css';
 
 const $ = selector => document.querySelector(selector);
 const icons = { Mail, BookOpen, Volume2, VolumeX, Pause, Play, Eclipse, ArrowLeftRight, ArrowUpRight, ArrowRight, MessageCircle, X, RotateCw, Check, Flower2, Clock3, TrainFront, Feather, Download, Settings2, ZoomIn, ZoomOut, Scan, Lightbulb, Upload, ChevronRight, ArrowDown };
@@ -12,6 +18,7 @@ const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;',
 const refreshIcons = () => createIcons({ icons, attrs: { 'aria-hidden': 'true' } });
 const SAVE_KEY = 'the-last-post.save.v1';
 const SETTINGS_KEY = 'the-last-post.settings.v1';
+const portraits = new Map([['沈伯', shenPortrait], ['曹遥', caoPortrait], ['叶青', yePortrait], ['阿岚', lanPortrait]]);
 const missions = { clock: { title: '归期', place: '钟楼', glyph: 'clock-3' }, greenhouse: { title: '春天', place: '温室', glyph: 'flower-2' }, platform: { title: '重逢', place: '旧站台', glyph: 'train-front' } };
 let state = createState(), dialogue = null, near = null, activeModal = null, introVisible = true, world;
 let saveAvailable = false, storageWarning = false, toastTimer, lastFocus;
@@ -87,7 +94,9 @@ function displayDialogue(value) {
   $('#dialogue').hidden = !value;
   if (!value) { pauseWorld(); return; }
   if (value.ending) { dialogue = null; $('#dialogue').hidden = true; showEnding(); return; }
-  $('#dialogue').innerHTML = `<div class="dialogue-header"><span class="speaker">${value.receipt ? icon('mail') : ''}${escape(value.speaker)}</span><button class="dialogue-close" aria-label="收起对话">${icon('x')}</button></div><h2>${escape(value.title)}</h2><p class="dialogue-text">${escape(value.text)}</p><div id="puzzle-slot"></div><div class="dialogue-choices">${value.choices.map(choice => `<button class="choice-button" data-action="${escape(choice.action)}"><span>${escape(choice.label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
+  const portrait = portraits.get(value.speaker.split(' · ')[0]);
+  const portraitImage = portrait ? `<img class="speaker-portrait" src="${escape(portrait)}" width="48" height="48" alt="" decoding="async">` : '';
+  $('#dialogue').innerHTML = `<div class="dialogue-header"><div class="speaker-identity">${portraitImage}<span class="speaker">${value.receipt ? icon('mail') : ''}${escape(value.speaker)}</span></div><button class="dialogue-close" aria-label="收起对话">${icon('x')}</button></div><h2>${escape(value.title)}</h2><p class="dialogue-text">${escape(value.text)}</p><div id="puzzle-slot"></div><div class="dialogue-choices">${value.choices.map(choice => `<button class="choice-button" data-action="${escape(choice.action)}"><span>${escape(choice.label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
   $('.dialogue-close').addEventListener('click', () => displayDialogue(null));
   $('#dialogue').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => act(button.dataset.action)));
   if (value.puzzle) renderPuzzle(value.puzzle);
@@ -247,31 +256,55 @@ function showEnding() {
   requestAnimationFrame(() => $('#revisit-button').focus({ preventScroll: true }));
 }
 
-function exportPostcard(ending) {
+async function exportPostcard(ending) {
+  const illustration = new Image();
+  illustration.src = harborCover;
+  const illustrationReady = await illustration.decode().then(() => true, () => false);
   const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 900;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#f7f3e9'; ctx.fillRect(0, 0, 1280, 900);
-  ctx.fillStyle = '#b6d5cf'; ctx.fillRect(0, 590, 1280, 310);
-  for (let row = 0; row < 6; row++) {
-    ctx.beginPath(); ctx.strokeStyle = '#88b8b0'; ctx.lineWidth = 2;
-    for (let x = 0; x <= 1280; x += 8) { const y = 630 + row * 43 + Math.sin(x / 100 + row) * 12; if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
-    ctx.stroke();
+  if (!ctx) { toast('当前浏览器无法绘制明信片。'); return; }
+  ctx.fillStyle = '#f5e7c8'; ctx.fillRect(0, 0, 1280, 900);
+  for (let x = 0; x < 1280; x += 48) {
+    ctx.fillStyle = x % 96 === 0 ? '#9a4a3a' : '#2e6159';
+    ctx.beginPath();
+    ctx.moveTo(x, 0); ctx.lineTo(x + 24, 0); ctx.lineTo(x + 38, 14); ctx.lineTo(x + 14, 14);
+    ctx.fill();
   }
-  ctx.fillStyle = '#23473f'; ctx.font = '25px "Microsoft YaHei", sans-serif'; ctx.fillText('余信 / THE LAST POST', 72, 82);
-  ctx.font = 'bold 58px "Microsoft YaHei", sans-serif'; ctx.fillText(ending.title, 72, 185);
-  ctx.font = '22px "Microsoft YaHei", sans-serif'; ctx.fillText(`${ending.subtitle} · 白沙邮局的最后一夜`, 76, 235);
-  ctx.font = '24px "Microsoft YaHei", sans-serif';
-  ending.reflections.forEach((text, index) => {
-    let line = '', y = 320 + index * 80;
-    for (const char of text) { if (ctx.measureText(line + char).width > 1100) { ctx.fillText(line, 76, y); line = ''; y += 34; } line += char; }
-    ctx.fillText(line, 76, y);
-  });
-  ctx.strokeStyle = '#b85e4e'; ctx.lineWidth = 3; ctx.strokeRect(1090, 54, 120, 120); ctx.fillStyle = '#b85e4e';
-  ctx.font = 'bold 28px "Microsoft YaHei", sans-serif'; ctx.fillText('已送达', 1108, 125);
-  ctx.fillStyle = '#23473f'; ctx.font = '20px "Microsoft YaHei", sans-serif';
-  ctx.fillText('三封信，各有归处。', 76, 795);
-  ctx.font = '16px "Microsoft YaHei", sans-serif'; ctx.fillText('原创叙事与程序化美术 · AI 辅助制作', 76, 840);
-  canvas.toBlob(blob => { if (blob) download(blob, '余信-夜航明信片.png', 'image/png'); }, 'image/png');
+  ctx.fillStyle = '#23474a'; ctx.fillRect(48, 60, 550, 647);
+  if (illustrationReady) {
+    const cropWidth = illustration.naturalHeight * 550 / 647;
+    ctx.drawImage(illustration, illustration.naturalWidth - cropWidth, 0, cropWidth, illustration.naturalHeight, 48, 60, 550, 647);
+  }
+  ctx.strokeStyle = '#aa9571'; ctx.lineWidth = 2; ctx.strokeRect(48, 60, 550, 647);
+  ctx.beginPath(); ctx.moveTo(626, 60); ctx.lineTo(626, 808); ctx.stroke();
+  ctx.fillStyle = '#23473f'; ctx.font = 'bold 29px "Microsoft YaHei", sans-serif'; ctx.fillText('白沙港 · 夜航', 48, 760);
+  ctx.font = '18px Georgia, serif'; ctx.fillText('THE LAST POST', 49, 792);
+  ctx.fillStyle = '#914536'; ctx.font = 'bold 22px "Microsoft YaHei", sans-serif'; ctx.fillText(ending.subtitle, 660, 123);
+  ctx.fillStyle = '#23473f'; ctx.font = 'bold 56px "Microsoft YaHei", sans-serif'; ctx.fillText(ending.title, 656, 223);
+  ctx.font = '20px "Microsoft YaHei", sans-serif';
+  let y = 330;
+  for (const text of ending.reflections) {
+    let line = '';
+    for (const char of text) {
+      if (ctx.measureText(line + char).width > 546) { ctx.fillText(line, 660, y); line = ''; y += 36; }
+      line += char;
+    }
+    ctx.fillText(line, 660, y);
+    y += 66;
+  }
+  ctx.save();
+  ctx.translate(1154, 733); ctx.rotate(-0.14);
+  ctx.strokeStyle = '#914536'; ctx.fillStyle = '#914536'; ctx.lineWidth = 2;
+  for (const radius of [64, 54]) { ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 16px "Microsoft YaHei", sans-serif'; ctx.fillText('白沙邮局', 0, -14);
+  ctx.font = 'bold 20px "Microsoft YaHei", sans-serif'; ctx.fillText('已送达', 0, 18);
+  ctx.restore();
+  ctx.fillStyle = '#4e6054'; ctx.font = '16px "Microsoft YaHei", sans-serif'; ctx.fillText('原创叙事与美术 · AI 辅助制作', 660, 856);
+  canvas.toBlob(blob => {
+    if (blob) download(blob, '余信-夜航明信片.png', 'image/png');
+    else toast('这张明信片未能导出。');
+  }, 'image/png');
 }
 
 function setZoom(value) {
