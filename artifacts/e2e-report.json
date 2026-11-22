@@ -1,23 +1,38 @@
 {
-  "testedAt": "2026-11-21T06:00:25.525Z",
-  "baseURL": "http://127.0.0.1:5173",
+  "testedAt": "2026-11-22T04:05:17.861Z",
+  "baseURL": "http://127.0.0.1:5181",
   "checks": [
     {
       "name": "Animated nonblank 2.5D scene",
       "detail": {
-        "drawCalls": 128,
-        "triangles": 78313
+        "drawCalls": 132,
+        "triangles": 67561
       }
     },
     {
       "name": "Canvas pixel diversity",
-      "detail": 246
+      "detail": 244
     },
     {
       "name": "Keyboard moves the character"
     },
     {
+      "name": "Camera zoom follows the character and returns to the overview"
+    },
+    {
+      "name": "Last selected backup wins; invalid replacement removes the old confirmation"
+    },
+    {
+      "name": "Reading, motion, volume and quality preferences persist; backup previews and restores"
+    },
+    {
+      "name": "Journal navigation during dialogue closes it and starts walking to the selected delivery"
+    },
+    {
       "name": "Puzzle cannot resolve before its clue"
+    },
+    {
+      "name": "Three-stage hints preserve the active puzzle and use its current values"
     },
     {
       "name": "Clock clue, mechanism and human decision"
@@ -35,6 +50,9 @@
       "name": "Ending text export downloads the actual story and disclosure"
     },
     {
+      "name": "Personal ending postcard exports a valid PNG"
+    },
+    {
       "name": "Landscape ending title and actions reachable by scrolling"
     },
     {
@@ -42,6 +60,9 @@
     },
     {
       "name": "Pause prevents movement"
+    },
+    {
+      "name": "Viewport 320x640 controls and scene fit"
     },
     {
       "name": "Viewport 390x844 controls and scene fit"

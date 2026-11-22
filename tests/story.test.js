@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createState, normalizeSave, getChapter, getObjective, getJournal, getPuzzle,
-  interact, choose, setPhase, adjustDial, adjustMirror, getEnding,
+  interact, choose, setPhase, adjustDial, adjustMirror, getEnding, getHint, getReceipts,
 } from '../src/story.js';
 
 function begin() {
@@ -14,7 +14,7 @@ function begin() {
 function prepareClock(state) {
   setPhase(state, 'present');
   choose(state, 'read:clock');
-  [3, 1, 2].forEach((count, index) => {
+  [3, 2, 0].forEach((count, index) => {
     for (let i = 0; i < count; i++) adjustDial(state, index);
   });
 }
@@ -32,6 +32,7 @@ function preparePlatform(state) {
   choose(state, 'stamp:present');
   setPhase(state, 'echo');
   choose(state, 'stamp:echo');
+  for (const fragment of ['north', 'closed', 'south', 'reunion']) choose(state, `sequence:platform:${fragment}`);
 }
 
 function finish(decisions = { clock: 'truth', greenhouse: 'share', platform: 'wait' }) {
@@ -108,6 +109,9 @@ test('collecting a stamp in the wrong phase cannot bypass the two-time puzzle', 
   setPhase(state, 'echo');
   choose(state, 'stamp:present');
   choose(state, 'stamp:echo');
+  assert.equal(getPuzzle(state, 'platform').ready, false);
+  assert.equal(choose(state, 'resolve:platform').assembly, 'platform');
+  for (const fragment of ['north', 'closed', 'south', 'reunion']) choose(state, `sequence:platform:${fragment}`);
   assert.equal(getPuzzle(state, 'platform').ready, true);
   assert.equal(choose(state, 'resolve:platform').speaker, '阿岚');
   choose(state, 'decision:platform:wait');
@@ -139,12 +143,12 @@ test('solving the mechanism alone does not deliver a letter; decision commits it
   assert.equal(state.decisions.clock, 'forgive');
 });
 
-test('invalid and out-of-bounds puzzle values are ignored and rotations wrap', () => {
+test('invalid and out-of-bounds puzzle values are ignored and coupled rotations wrap', () => {
   const state = begin();
   for (const index of [-1, 3, 1.5, NaN, '0']) adjustDial(state, index);
   assert.deepEqual(state.dials, [0, 0, 0]);
   for (let i = 0; i < 4; i++) adjustDial(state, 0);
-  assert.equal(state.dials[0], 0);
+  assert.deepEqual(state.dials, [0, 0, 0]);
   setPhase(state, 'invalid');
   assert.equal(state.phase, 'present');
 });
@@ -217,9 +221,187 @@ test('journal and objective provide relevant clues rather than inventing progres
   assert.match(getChapter(state), /序章/);
   assert.equal(getJournal(state).length, 1);
   choose(state, 'begin');
-  assert.match(getObjective(state), /家书/);
+  assert.match(getObjective(state), /钟楼、温室、旧站台/);
   choose(state, 'read:clock');
   assert.match(getJournal(state).find(entry => entry.title.includes('家书')).body, /III/);
   assert.equal(getJournal(state).some(entry => entry.title.includes('已投递')), false);
   assert.match(getObjective(finish()), /决定/);
+});
+
+test('clock is a coupled mechanism: upstream turns affect only the immediate next wheel', () => {
+  const state = begin();
+  adjustDial(state, 0);
+  assert.deepEqual(state.dials, [1, 1, 0]);
+  adjustDial(state, 1);
+  assert.deepEqual(state.dials, [1, 2, 1]);
+  adjustDial(state, 2);
+  assert.deepEqual(state.dials, [1, 2, 2]);
+  const wrong = begin();
+  choose(wrong, 'read:clock');
+  [3, 1, 2].forEach((count, index) => {
+    for (let i = 0; i < count; i++) adjustDial(wrong, index);
+  });
+  assert.deepEqual(wrong.dials, [3, 0, 3]);
+  assert.equal(getPuzzle(wrong, 'clock').ready, false, 'copying the target as independent button counts cannot solve coupled wheels');
+});
+
+test('every one of the 64 clock configurations is reachable using the actual controls', () => {
+  const queue = [[0, 0, 0]];
+  const seen = new Set(['0,0,0']);
+  for (let head = 0; head < queue.length; head++) {
+    for (let index = 0; index < 3; index++) {
+      const state = begin();
+      state.dials = [...queue[head]];
+      adjustDial(state, index);
+      const key = state.dials.join(',');
+      if (!seen.has(key)) { seen.add(key); queue.push(state.dials); }
+    }
+  }
+  assert.equal(seen.size, 64, 'the gearing must not make any legal target impossible');
+});
+
+test('third-tier clock hints solve the current configuration, with no state mutation', () => {
+  for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) for (let c = 0; c < 4; c++) {
+    const state = begin();
+    choose(state, 'read:clock');
+    state.dials = [a, b, c];
+    const before = structuredClone(state);
+    const hint = getHint(state, 'clock', 3);
+    assert.deepEqual(state, before);
+    const counts = [...hint.matchAll(/(?:离港|熄灯|归家) (\d) 次/g)].map(match => Number(match[1]));
+    assert.equal(counts.length, 3);
+    counts.forEach((count, index) => {
+      for (let i = 0; i < count; i++) adjustDial(state, index);
+    });
+    assert.equal(getPuzzle(state, 'clock').ready, true, `hint should solve starting state ${a},${b},${c}`);
+  }
+});
+
+test('greenhouse connections reflect continuous light propagation, not isolated correct mirrors', () => {
+  const state = begin();
+  setPhase(state, 'echo');
+  state.mirrors = [0, 2, 3];
+  let puzzle = getPuzzle(state, 'greenhouse');
+  assert.deepEqual(puzzle.connections, [false, false, false]);
+  assert.equal(puzzle.matched, 0);
+  assert.match(puzzle.feedback, /第一面/);
+  state.mirrors = [1, 0, 3];
+  puzzle = getPuzzle(state, 'greenhouse');
+  assert.deepEqual(puzzle.connections, [true, false, false]);
+  assert.equal(puzzle.matched, 1);
+  assert.equal(puzzle.segments.filter(segment => segment.active).length, 2);
+  state.mirrors = [1, 2, 0];
+  assert.deepEqual(getPuzzle(state, 'greenhouse').connections, [true, true, false]);
+  state.mirrors = [1, 2, 3];
+  puzzle = getPuzzle(state, 'greenhouse');
+  assert.equal(puzzle.matched, 3);
+  assert.equal(puzzle.ready, false, 'light alone does not replace reading the letter');
+  choose(state, 'read:greenhouse');
+  assert.equal(getPuzzle(state, 'greenhouse').ready, true);
+  assert.match(puzzle.feedback, /抵达种壳/);
+});
+
+test('platform reconstruction rejects wrong order, ignores duplicates and permits recovery', () => {
+  const state = begin();
+  choose(state, 'stamp:present');
+  setPhase(state, 'echo');
+  choose(state, 'stamp:echo');
+  choose(state, 'sequence:platform:south');
+  choose(state, 'sequence:platform:south');
+  assert.deepEqual(state.platformOrder, ['south']);
+  for (const fragment of ['north', 'closed', 'reunion']) choose(state, `sequence:platform:${fragment}`);
+  assert.equal(getPuzzle(state, 'platform').ready, false);
+  assert.equal(choose(state, 'resolve:platform').title, '地址读反了');
+  choose(state, 'decision:platform:wait');
+  assert.equal(state.solved.platform, false);
+  choose(state, 'sequence:platform:reset');
+  assert.deepEqual(state.platformOrder, []);
+  for (const fragment of ['north', 'closed', 'south', 'reunion']) choose(state, `sequence:platform:${fragment}`);
+  choose(state, 'decision:platform:wait');
+  assert.equal(state.solved.platform, true);
+});
+
+test('all hint tiers are readonly, progressively specific and invalid ids are harmless', () => {
+  const state = begin();
+  const before = structuredClone(state);
+  for (const id of ['clock', 'greenhouse', 'platform']) {
+    const hints = [1, 2, 3].map(level => getHint(state, id, level));
+    assert.equal(new Set(hints).size, 3);
+    hints.forEach(hint => assert.equal(typeof hint, 'string'));
+  }
+  assert.equal(getHint(state, 'unsupported', 1), '');
+  assert.equal(getHint(state, 'clock', Infinity), getHint(state, 'clock', 1));
+  assert.deepEqual(state, before);
+});
+
+test('objectives follow the player-selected thread rather than always demanding clock first', () => {
+  const state = begin();
+  choose(state, 'read:greenhouse');
+  assert.equal(state.activeMission, 'greenhouse');
+  assert.match(getObjective(state), /温室/);
+  assert.doesNotMatch(getObjective(state), /钟楼/);
+  choose(state, 'stamp:present');
+  assert.equal(state.activeMission, 'platform');
+  assert.match(getObjective(state), /邮戳/);
+  const loaded = normalizeSave(structuredClone(state));
+  assert.equal(loaded.activeMission, 'platform');
+  preparePlatform(state);
+  choose(state, 'decision:platform:wait');
+  assert.equal(state.activeMission, null);
+  assert.match(getObjective(state), /钟楼、温室/);
+});
+
+test('receipts appear only after decisions, reflect each branch and retain delivery order', () => {
+  const state = begin();
+  preparePlatform(state);
+  assert.deepEqual(getReceipts(state), []);
+  const response = choose(state, 'decision:platform:farewell');
+  assert.equal(response.receipt, 'platform');
+  assert.match(response.text, /旧车票/);
+  assert.equal(getReceipts(state)[0].recipient, '阿岚');
+  prepareGreenhouse(state);
+  choose(state, 'decision:greenhouse:plant');
+  prepareClock(state);
+  choose(state, 'decision:clock:forgive');
+  assert.deepEqual(getReceipts(state).map(receipt => receipt.id), ['platform', 'greenhouse', 'clock']);
+  assert.match(getReceipts(state)[1].body, /窗台/);
+  choose(state, 'ending:carry');
+  assert.deepEqual(getEnding(state).receipts, getReceipts(state));
+  assert.equal(getEnding(state).keepsakes.length, 3);
+  const first = getReceipts(state);
+  first[0].body = 'changed externally';
+  assert.notEqual(getReceipts(state)[0].body, 'changed externally');
+});
+
+test('legacy v1 completed saves migrate without replaying the new mechanisms', () => {
+  const legacy = {
+    version: 1, started: true, phase: 'echo',
+    solved: { clock: true, greenhouse: true, platform: true },
+    decisions: { clock: 'truth', greenhouse: 'share', platform: 'wait' },
+    clues: ['clock', 'greenhouse'], dials: [3, 1, 2], mirrors: [1, 2, 3],
+    stamps: { present: true, echo: true }, ending: 'preserve',
+  };
+  const loaded = normalizeSave(legacy);
+  assert.deepEqual(loaded.solved, legacy.solved);
+  assert.deepEqual(loaded.decisions, legacy.decisions);
+  assert.deepEqual(loaded.platformOrder, ['north', 'closed', 'south', 'reunion']);
+  assert.equal(loaded.ending, 'preserve');
+  assert.equal(getReceipts(loaded).length, 3);
+  assert.deepEqual(normalizeSave(structuredClone(loaded)), loaded);
+});
+
+test('partial new saves retain reconstruction and discard invalid duplicate progress', () => {
+  const loaded = normalizeSave({
+    version: 1, started: true, phase: 'echo',
+    stamps: { present: true, echo: true },
+    platformOrder: ['south', 'south', 'invalid', 'north'],
+    activeMission: 'platform', deliveryOrder: ['clock', 'clock', 'hacked'],
+  });
+  assert.deepEqual(loaded.platformOrder, ['south', 'north']);
+  assert.deepEqual(loaded.deliveryOrder, []);
+  assert.match(choose(loaded, 'resolve:platform').text, /次序/);
+  choose(loaded, 'sequence:platform:reset');
+  for (const fragment of ['north', 'closed', 'south', 'reunion']) choose(loaded, `sequence:platform:${fragment}`);
+  choose(loaded, 'decision:platform:wait');
+  assert.equal(loaded.solved.platform, true);
 });

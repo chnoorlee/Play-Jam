@@ -35,7 +35,7 @@ export function createWorld(container, callbacks = {}) {
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -43,6 +43,8 @@ export function createWorld(container, callbacks = {}) {
   renderer.domElement.setAttribute('aria-label', '余信：潮水中的邮局、钟楼、温室与旧站台');
   renderer.domElement.setAttribute('tabindex', '0');
   renderer.domElement.style.touchAction = 'none';
+  renderer.domElement.style.width = '100%';
+  renderer.domElement.style.height = '100%';
   container.append(renderer.domElement);
 
   const hemi = new THREE.HemisphereLight('#e7f6ef', '#5a7776', 2.1);
@@ -122,7 +124,7 @@ export function createWorld(container, callbacks = {}) {
       #include <colorspace_fragment>
       }`,
   });
-  const sea = mesh(new THREE.PlaneGeometry(230, 230, 80, 80), seaMaterial, 0, -0.93, 0);
+  const sea = mesh(new THREE.PlaneGeometry(230, 230, 32, 32), seaMaterial, 0, -0.93, 0);
   sea.rotation.x = -Math.PI/2; sea.castShadow = false;
 
   const rectangles = [
@@ -181,11 +183,16 @@ export function createWorld(container, callbacks = {}) {
   }
   function sign(text, width, height, x,y,z, color='#f4efe0',ink='#2e5653') {
     const canvas=document.createElement('canvas'); canvas.width=512; canvas.height=192;
-    const ctx=canvas.getContext('2d'); ctx.fillStyle=color;ctx.fillRect(0,0,512,192);
-    ctx.strokeStyle=ink;ctx.lineWidth=4;ctx.strokeRect(12,12,488,168);
-    ctx.fillStyle=ink;ctx.font='500 62px "Microsoft YaHei", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,102);
+    const ctx=canvas.getContext('2d');
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
     const m=mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture}),x,y,z);
+    m.userData.setText=next=>{
+      ctx.fillStyle=color;ctx.fillRect(0,0,512,192);
+      ctx.strokeStyle=ink;ctx.lineWidth=4;ctx.strokeRect(12,12,488,168);
+      ctx.fillStyle=ink;ctx.font='500 62px "Microsoft YaHei", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(next,256,102);
+      texture.needsUpdate=true;
+    };
+    m.userData.setText(text);
     return m;
   }
   function arch(width,height,depth,mat,x,y,z,parent=scene) {
@@ -223,7 +230,8 @@ export function createWorld(container, callbacks = {}) {
   cylinder(0.07,0.09,0.7,'gold',-11.7,6.57,-5);
   sphere(0.15,'gold',-11.7,6.98,-5);
   const clockRim=cylinder(0.91,0.91,0.15,'gold',-11.7,3.91,-3.92,scene,48);clockRim.rotation.x=Math.PI/2;
-  const clockFace=mesh(new THREE.CircleGeometry(0.77,48),'pale',-11.7,3.91,-3.82);
+  const clockFaceMaterial=new THREE.MeshStandardMaterial({color:palette.pale,emissive:'#ffc56d',emissiveIntensity:0,roughness:.8});
+  const clockFace=mesh(new THREE.CircleGeometry(0.77,48),clockFaceMaterial,-11.7,3.91,-3.82);
   for(let i=0;i<12;i++) {
     const a=i*TAU/12;
     const tick=box(0.045,i%3===0?0.16:0.085,0.035,'dark',-11.7+Math.sin(a)*0.61,3.91+Math.cos(a)*0.61,-3.78);tick.rotation.z=-a;
@@ -255,6 +263,7 @@ export function createWorld(container, callbacks = {}) {
   const roofGlassBack=mesh(new THREE.PlaneGeometry(4.4,2.16),glass,10.4,3.325,-6.85);roofGlassBack.rotation.x=Math.atan2(1.9,1.05);
   sign('温 室',1.3,0.5,10.4,2.64,-3.94);
   const flowerMats=['#d98c83','#ebc667','#ebe6c8','#a196bc'].map(c=>material(c));
+  const bloomParts=[];
   const foliage=[];
   function plant(x,z,scale=1) {
     cylinder(0.18*scale,0.12*scale,0.28*scale,'brick',x,0.38*scale,z);
@@ -264,14 +273,15 @@ export function createWorld(container, callbacks = {}) {
       for(let j=0;j<5;j++) {
         const b=j*TAU/5;
         const p=sphere(0.1*scale,flowerMats[i%4],px+Math.sin(b)*0.08*scale,1.0*scale,pz+Math.cos(b)*0.08*scale);p.scale.y*=0.6;
+        bloomParts.push(p);
       }
-      sphere(0.055*scale,'gold',px,1.04*scale,pz);
+      bloomParts.push(sphere(0.055*scale,'gold',px,1.04*scale,pz));
     }
   }
   for(let i=0;i<8;i++)plant(8.7+(i%4)*1.04,-7.1+Math.floor(i/4)*1.6,0.8+random()*0.3);
   plant(12.9,-3.3,1.2);plant(7.1,-6.5,0.9);
   box(0.8,0.08,0.64,'wood',7.55,0.88,-5.8);
-  box(0.54,0.025,0.38,'white',7.55,0.94,-5.8);
+  const seedNoteModel=box(0.54,0.025,0.38,'white',7.55,0.94,-5.8);
   for(const x of [9,10.2,11.4]) {
     cylinder(0.32,0.4,0.6,'stone',x,0.53,-2.95);
     const mirror=box(0.35,0.5,0.07,'gold',x,1.04,-2.95);mirror.rotation.y=(x-9)*0.5;
@@ -285,7 +295,7 @@ export function createWorld(container, callbacks = {}) {
     beam([x,2.85,8.8],[x,2.85,10.4],0.065,'green');
   }
   roof(9.6,2.7,0.5,3.05,2.82,9.2,'green');
-  sign('末 班 · 无 人',2.4,0.62,3.05,2.55,10.58);
+  const stationSign=sign('末 班 · 无 人',2.4,0.62,3.05,2.55,10.58);
   const presentStamp=new THREE.Group();presentStamp.position.set(7,0.23,11);scene.add(presentStamp);
   const echoStamp=new THREE.Group();echoStamp.position.set(-1,0.23,11);scene.add(echoStamp);
   for(const [group,c] of [[presentStamp,'gold'],[echoStamp,'#b2b0e4']]) {
@@ -306,10 +316,12 @@ export function createWorld(container, callbacks = {}) {
     }
   }
   bench(-2,3.5);bench(-13,-0.9);bench(5.5,12.4,Math.PI);bench(12.9,-5.4,-Math.PI/2);
+  const stationLanterns=[];
   function lamp(x,z) {
     cylinder(0.14,0.24,0.25,'dark',x,0.34,z);
     cylinder(0.045,0.065,2.05,'dark',x,1.45,z);
-    box(0.39,0.46,0.39,new THREE.MeshStandardMaterial({color:palette.light,emissive:palette.light,emissiveIntensity:0.6}),x,2.57,z);
+    const lantern=box(0.39,0.46,0.39,new THREE.MeshStandardMaterial({color:palette.light,emissive:palette.light,emissiveIntensity:0.6}),x,2.57,z);
+    if(z>7)stationLanterns.push(lantern);
     for(const dx of [-0.21,0.21])for(const dz of [-0.21,0.21])box(0.035,0.55,0.035,'dark',x+dx,2.57,z+dz);
     const top=mesh(new THREE.ConeGeometry(0.38,0.25,4),'dark',x,2.96,z);top.rotation.y=Math.PI/4;
     sphere(0.07,'gold',x,3.13,z);
@@ -358,9 +370,24 @@ export function createWorld(container, callbacks = {}) {
     ring.rotation.x=-Math.PI/2;ring.scale.y=.36;ring.castShadow=false;ripples.push(ring);
   }
 
+  // Bloom heads share five material batches, keeping their growth independent of the baked stems.
+  const gardenBlooms=new THREE.Group();gardenBlooms.position.set(10.4,.25,-5.9);scene.add(gardenBlooms);
+  scene.updateMatrixWorld(true);
+  for(const mat of [...flowerMats,material('gold')]) {
+    const parts=bloomParts.filter(part=>part.material===mat);
+    if(!parts.length)continue;
+    const pieces=parts.map(part=>{
+      const geometry=part.geometry.toNonIndexed();geometry.applyMatrix4(part.matrixWorld);geometry.translate(-10.4,-.25,5.9);return geometry;
+    });
+    const geometry=mergeGeometries(pieces,false);
+    mesh(geometry,mat,0,0,0,gardenBlooms);
+    pieces.forEach(piece=>piece.dispose());parts.forEach(part=>part.removeFromParent());
+  }
+  gardenBlooms.scale.y=.34;
+
   // Bake static architecture into material batches; animated objects retain their own transforms.
-  const animatedObjects=new Set([sea,flag,...ripples]);
-  for(const root of [clockHands,presentStamp,echoStamp,...boats.map(boat=>boat.group)])root.traverse(object=>animatedObjects.add(object));
+  const animatedObjects=new Set([sea,flag,clockFace,letterModel,seal,seedNoteModel,...stationLanterns,...ripples]);
+  for(const root of [clockHands,gardenBlooms,presentStamp,echoStamp,...boats.map(boat=>boat.group)])root.traverse(object=>animatedObjects.add(object));
   animatedObjects.forEach(object=>{if(object.isMesh)object.castShadow=false;});
   const batches=new Map(),staticMeshes=[];
   scene.updateMatrixWorld(true);
@@ -417,9 +444,28 @@ export function createWorld(container, callbacks = {}) {
   playerShadow.rotation.x=-Math.PI/2;playerShadow.castShadow=false;playerShadow.receiveShadow=false;
   const playerHalo=mesh(new THREE.RingGeometry(.36,.40,40),new THREE.MeshBasicMaterial({color:'#fcf1c5',transparent:true,opacity:.6,side:THREE.DoubleSide}),0,.25,3.8);playerHalo.rotation.x=-Math.PI/2;playerHalo.castShadow=false;
   const destination=mesh(new THREE.RingGeometry(.2,.29,32),new THREE.MeshBasicMaterial({color:'#f7edcb',transparent:true,opacity:.8,side:THREE.DoubleSide}),0,.26,0);destination.rotation.x=-Math.PI/2;destination.visible=false;destination.castShadow=false;
+  const deliveryEnvelope=new THREE.Group();deliveryEnvelope.visible=false;scene.add(deliveryEnvelope);
+  box(.62,.42,.045,'white',0,0,0,deliveryEnvelope);
+  const foldGeometry=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-.29,.19,.027),new THREE.Vector3(0,-.035,.027),
+    new THREE.Vector3(0,-.035,.027),new THREE.Vector3(.29,.19,.027),
+  ]);
+  deliveryEnvelope.add(new THREE.LineSegments(foldGeometry,new THREE.LineBasicMaterial({color:palette.gold})));
+  const deliverySeal=sphere(.055,'roof',0,-.035,.04,deliveryEnvelope);deliverySeal.scale.z=.25;
+  deliveryEnvelope.quaternion.copy(camera.quaternion);
+  deliveryEnvelope.traverse(object=>{object.castShadow=false;object.receiveShadow=false;});
+  const sparkMaterial=new THREE.MeshBasicMaterial({color:'#f6d28c',transparent:true,opacity:.8,depthWrite:false});
+  const deliverySparks=new THREE.InstancedMesh(new THREE.OctahedronGeometry(.055),sparkMaterial,18);
+  deliverySparks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);deliverySparks.visible=false;deliverySparks.frustumCulled=false;scene.add(deliverySparks);
+  const sparkTransform=new THREE.Object3D();
+  let celebration=null;
 
   const labels=new Map();
   const markers=new Map();
+  const labelStates=new Map();
+  const markerMaterial=new THREE.MeshStandardMaterial({color:'#f6d28c',emissive:'#eebd6b',emissiveIntensity:.35});
+  const completeMarkerMaterial=new THREE.MeshStandardMaterial({color:'#8cb39a',emissive:'#8cb39a',emissiveIntensity:.12});
+  const markerGeometry=new THREE.OctahedronGeometry(.13);
   for(const [id,a] of Object.entries(ANCHORS)) {
     const button=document.createElement('button');button.type='button';button.className=`world-label${id.includes('note')||id==='letter'?' small-label':''}`;button.dataset.id=id;
     button.style.left='0';button.style.top='0';
@@ -429,7 +475,8 @@ export function createWorld(container, callbacks = {}) {
     button.addEventListener('pointerdown',event=>event.stopPropagation());
     button.addEventListener('click',event=>{event.stopPropagation();if(!paused)moveTo(id);});
     container.append(button);labels.set(id,button);
-    const marker=mesh(new THREE.OctahedronGeometry(.13),new THREE.MeshStandardMaterial({color:'#f6d28c',emissive:'#eebd6b',emissiveIntensity:.35}),a.x,1.3,a.z);marker.castShadow=false;markers.set(id,marker);
+    const marker=mesh(markerGeometry,markerMaterial,a.x,1.3,a.z);marker.castShadow=false;markers.set(id,marker);
+    labelStates.set(id,{name,glyph,compact:false,completed:false,priority:0});
   }
 
   // The navigation grid is independent of render meshes; bridges and obstacle footprints share world coordinates.
@@ -461,6 +508,10 @@ export function createWorld(container, callbacks = {}) {
     return null;
   }
   let path=[],pending=null,phase='present',paused=false,disposed=false,frames=0,nearId=null,progress=null;
+  let zoom=1,quality=null,reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches??false;
+  let ambientTime=0,phaseInitialized=false,phaseTransition=null,progressSignature='';
+  const restorations={clock:0,greenhouse:0,platform:0};
+  const restorationTargets={clock:0,greenhouse:0,platform:0};
   const keySet=new Set(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),-.25),point=new THREE.Vector3();
   function navigate(x,z,id=null) {
     const start=nearestCell(player.group.position.x,player.group.position.z),end=nearestCell(x,z);
@@ -485,7 +536,7 @@ export function createWorld(container, callbacks = {}) {
     if(raycaster.ray.intersectPlane(plane,point)) {
       let selected=null,best=.9;
       for(const [id,a]of Object.entries(ANCHORS)) {
-        if(a.phase&&a.phase!==phase)continue;
+        if(!anchorAvailable(id,a))continue;
         const d=Math.hypot(point.x-a.x,point.z-a.z);if(d<best){selected=id;best=d;}
       }
       if(selected)moveTo(selected);else if(walkable(point.x,point.z))navigate(point.x,point.z);
@@ -506,6 +557,8 @@ export function createWorld(container, callbacks = {}) {
   renderer.domElement.addEventListener('pointerdown',handlePointer);
   window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',blur);
   const projected=new THREE.Vector3(),labelPositions=new Map();
+  const baseCameraPosition=new THREE.Vector3(),baseFocus=new THREE.Vector3();
+  const cameraRight=new THREE.Vector3(),cameraUp=new THREE.Vector3(),cameraOffset=new THREE.Vector3(),cameraGoal=new THREE.Vector3(),cameraPositionGoal=new THREE.Vector3();
   const framingPoints=[];
   const framingBoxes=[
     ...rectangles.map(rect=>({x:rect.x,z:rect.z,w:rect.w+1.5,d:rect.d+1.5,h:4.2})),
@@ -517,8 +570,10 @@ export function createWorld(container, callbacks = {}) {
   let framing=null;
   let width=1,height=1,labelsDirty=true;
   function resize() {
-    width=container.clientWidth||window.innerWidth;height=container.clientHeight||window.innerHeight;
-    renderer.setSize(width,height);
+    const nextWidth=container.clientWidth||window.innerWidth,nextHeight=container.clientHeight||window.innerHeight;
+    if(framing&&width===nextWidth&&height===nextHeight)return;
+    width=nextWidth;height=nextHeight;
+    renderer.setSize(width,height,false);
     const aspect=width/height;
     camera.position.set(30,33,36);camera.lookAt(viewTarget);camera.updateMatrixWorld(true);
     let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
@@ -527,13 +582,20 @@ export function createWorld(container, callbacks = {}) {
       minX=Math.min(minX,projected.x);maxX=Math.max(maxX,projected.x);
       minY=Math.min(minY,projected.y);maxY=Math.max(maxY,projected.y);
     }
-    const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
-    const up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
-    camera.position.addScaledVector(right,(minX+maxX)/2).addScaledVector(up,(minY+maxY)/2);
+    cameraRight.setFromMatrixColumn(camera.matrixWorld,0);
+    cameraUp.setFromMatrixColumn(camera.matrixWorld,1);
+    camera.position.addScaledVector(cameraRight,(minX+maxX)/2).addScaledVector(cameraUp,(minY+maxY)/2);
+    baseCameraPosition.copy(camera.position);
+    baseFocus.copy(viewTarget).addScaledVector(cameraRight,(minX+maxX)/2).addScaledVector(cameraUp,(minY+maxY)/2);
+    cameraOffset.set(0,0,0);
     camera.updateMatrixWorld(true);
     const halfHeight=Math.max(15.5,(maxX-minX)*.56/aspect,(maxY-minY)*.59);
     camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;
-    camera.updateProjectionMatrix();
+    camera.zoom=zoom;camera.updateProjectionMatrix();
+    updateFraming();
+    labelsDirty=true;
+  }
+  function updateFraming() {
     framing={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
     for(const point of framingPoints){
       projected.copy(point).project(camera);
@@ -541,9 +603,22 @@ export function createWorld(container, callbacks = {}) {
       framing.left=Math.min(framing.left,x);framing.right=Math.max(framing.right,x);
       framing.top=Math.min(framing.top,y);framing.bottom=Math.max(framing.bottom,y);
     }
-    labelsDirty=true;
   }
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(container);resize();
+  function updateCamera(delta) {
+    const blend=reducedMotion?1:1-Math.exp(-delta*5);
+    const nextZoom=THREE.MathUtils.lerp(camera.zoom,zoom,blend);
+    const follow=THREE.MathUtils.smoothstep(nextZoom,1,1.8);
+    projected.copy(player.group.position).sub(baseFocus);
+    cameraGoal.copy(cameraRight).multiplyScalar(projected.dot(cameraRight)*follow);
+    cameraGoal.addScaledVector(cameraUp,projected.dot(cameraUp)*follow);
+    cameraOffset.lerp(cameraGoal,blend);
+    cameraPositionGoal.copy(baseCameraPosition).add(cameraOffset);
+    if(Math.abs(camera.zoom-nextZoom)<.00005&&camera.position.distanceToSquared(cameraPositionGoal)<.000001)return;
+    camera.zoom=nextZoom;camera.position.copy(baseCameraPosition).add(cameraOffset);
+    camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+    labelsDirty=true;updateFraming();
+  }
   function layoutLabels() {
     const small=width<600;
     const safeTop=height<620?88:small?140:110;
@@ -553,14 +628,14 @@ export function createWorld(container, callbacks = {}) {
     for(const [id,a]of Object.entries(ANCHORS)) {
       const label=labels.get(id);if(label.hidden)continue;
       projected.set(a.x,1.8,a.z).project(camera);
-      const w=label.offsetWidth||85,h=label.offsetHeight||25;
-      candidates.push({id,label,w,h,x:THREE.MathUtils.clamp((projected.x*.5+.5)*width,w/2+10,width-w/2-10),y:THREE.MathUtils.clamp((-projected.y*.5+.5)*height,safeTop+h,safeBottom)});
+      const w=label.offsetWidth||85,h=label.offsetHeight||28;
+      candidates.push({id,label,w,h,priority:labelStates.get(id).priority,x:THREE.MathUtils.clamp((projected.x*.5+.5)*width,w/2+10,width-w/2-10),y:THREE.MathUtils.clamp((-projected.y*.5+.5)*height,safeTop+h,safeBottom)});
     }
-    candidates.sort((a,b)=>a.y-b.y||a.x-b.x);
+    candidates.sort((a,b)=>b.priority-a.priority||a.y-b.y||a.x-b.x);
     for(const item of candidates) {
       const offsets=[];
-      const rowCount=Math.ceil(Math.max(0,safeBottom-safeTop)/(item.h+7));
-      for(let row=-rowCount;row<=rowCount;row++)for(let column=-2;column<=2;column++) {
+      const rowCount=Math.min(9,Math.ceil(Math.max(0,safeBottom-safeTop)/(item.h+7)));
+      for(let row=-rowCount;row<=rowCount;row++)for(let column=-1;column<=1;column+=.5) {
         const dx=column*(item.w+7),dy=row*(item.h+7);
         offsets.push({dx,dy,cost:dx*dx+dy*dy*1.1});
       }
@@ -581,12 +656,71 @@ export function createWorld(container, callbacks = {}) {
     }
     labelsDirty=false;
   }
+  function anchorAvailable(id,a=ANCHORS[id]) {
+    return (!a.phase||a.phase===phase)&&(id!=='final'||Object.values(progress?.solved||{}).filter(Boolean).length===3);
+  }
+  function anchorComplete(id) {
+    if(id==='letter')return progress?.clues?.includes('clock')??false;
+    if(id==='seed-note')return progress?.clues?.includes('greenhouse')??false;
+    if(id.endsWith('-stamp'))return Boolean(progress?.stamps?.[id.split('-')[0]]);
+    if(id==='keeper')return Boolean(progress?.started);
+    return Boolean(progress?.solved?.[id]);
+  }
+  function setZoom(value) {
+    const number=Number(value);if(!Number.isFinite(number))return zoom;
+    zoom=THREE.MathUtils.clamp(number,1,1.8);labelsDirty=true;
+    return zoom;
+  }
+  function setReducedMotion(value) {
+    reducedMotion=Boolean(value);
+    if(reducedMotion&&phaseTransition){phaseTransition.colors.forEach(tween=>tween.color.copy(tween.target));phaseTransition=null;scene.fog.color.copy(scene.background);}
+    if(reducedMotion){deliverySparks.visible=false;ambientTime=0;}
+  }
+  function setQuality(value) {
+    const next=value==='low'?'low':'high';if(next===quality)return quality;
+    quality=next;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,quality==='low'?1:1.6));
+    renderer.shadowMap.enabled=quality==='high';
+    if(renderer.shadowMap.enabled)renderer.shadowMap.needsUpdate=true;
+    sea.geometry.dispose();sea.geometry=new THREE.PlaneGeometry(230,230,quality==='low'?12:32,quality==='low'?12:32);
+    ripples.forEach((r,i)=>{r.visible=quality==='high'||i%2===0;});
+    scene.traverse(object=>{if(object.material)for(const mat of Array.isArray(object.material)?object.material:[object.material])mat.needsUpdate=true;});
+    renderer.setSize(width,height,false);
+    return quality;
+  }
+  function setProgress(state) {
+    const first=progress===null;progress=state;
+    const signature=JSON.stringify([state?.started,state?.solved,state?.clues,state?.stamps]);
+    if(signature===progressSignature)return;
+    progressSignature=signature;labelsDirty=true;
+    for(const id of Object.keys(restorations)) {
+      restorationTargets[id]=Number(Boolean(state?.solved?.[id]));
+      if(first)restorations[id]=restorationTargets[id];
+    }
+    letterModel.visible=seal.visible=!state?.clues?.includes('clock');
+    seedNoteModel.visible=!state?.clues?.includes('greenhouse');
+    stationSign.userData.setText(state?.solved?.platform?'末 班 · 启 程':'末 班 · 无 人');
+  }
+  function celebrate(id) {
+    const anchor=ANCHORS[id];if(!anchor||disposed)return false;
+    celebration={x:anchor.x,z:anchor.z,started:performance.now()};
+    deliveryEnvelope.position.set(anchor.x,2.1,anchor.z);deliveryEnvelope.scale.setScalar(1);deliveryEnvelope.visible=true;
+    sparkMaterial.color.set(id==='greenhouse'?'#edb4a1':id==='platform'?'#c2e6d1':'#f6d28c');
+    deliverySparks.visible=!reducedMotion;
+    return true;
+  }
+  setQuality(width<600||navigator.hardwareConcurrency<=4?'low':'high');
   let previous=performance.now();
+  let averageFrameMs=0;
   const vector=new THREE.Vector3();
   function animate(now) {
     if(disposed)return;
-    const delta=Math.min((now-previous)/1000,.15);previous=now;frames++;
-    const t=now/1000;seaUniforms.time.value=t;
+    const elapsed=now-previous;previous=now;
+    if(document.hidden)return;
+    const delta=Math.min(elapsed/1000,.15);frames++;
+    averageFrameMs=averageFrameMs?averageFrameMs*.9+elapsed*.1:elapsed;
+    if(!reducedMotion)ambientTime+=delta;
+    const t=ambientTime;seaUniforms.time.value=t;
     boats.forEach(b=>{b.group.position.y=b.y+Math.sin(t*.7+b.offset)*.045;b.group.rotation.z=Math.sin(t*.6+b.offset)*.04;});
     ripples.forEach((r,i)=>{r.material.opacity=.08+Math.sin(t*.6+i)*.035;});
     flag.rotation.y=Math.sin(t*1.5)*.055;
@@ -622,56 +756,115 @@ export function createWorld(container, callbacks = {}) {
         if(!path.length){destination.visible=false;const id=pending;pending=null;if(id)callbacks.onInteract?.(id);}
       }
     }
-    const walk=moving?Math.sin(t*14):0;
+    const walk=moving&&!reducedMotion?Math.sin(t*14):0;
     player.feet[0].position.z=.015+walk*.13;player.feet[1].position.z=.015-walk*.13;
-    player.cloak.rotation.z=walk*.035;player.tail.rotation.x=Math.sin(t*4)*.07+(moving?.15:0);
-    player.group.position.y=.23+(moving?Math.abs(walk)*.035:Math.sin(t*1.7)*.013);
+    player.cloak.rotation.z=walk*.035;player.tail.rotation.x=reducedMotion?0:Math.sin(t*4)*.07+(moving?.15:0);
+    player.group.position.y=.23+(reducedMotion?0:moving?Math.abs(walk)*.035:Math.sin(t*1.7)*.013);
     playerHalo.position.set(player.group.position.x,.25,player.group.position.z);
     playerShadow.position.set(player.group.position.x,.245,player.group.position.z);
     destination.scale.setScalar(1+Math.sin(t*4)*.1);
+    updateCamera(delta);
+    if(phaseTransition) {
+      const amount=Math.min(1,(now-phaseTransition.started)/650),ease=amount*amount*(3-2*amount);
+      phaseTransition.colors.forEach(tween=>tween.color.lerpColors(tween.start,tween.target,ease));
+      scene.fog.color.copy(scene.background);
+      if(amount===1)phaseTransition=null;
+    }
+    for(const id of Object.keys(restorations)) {
+      restorations[id]=THREE.MathUtils.lerp(restorations[id],restorationTargets[id],reducedMotion?1:1-Math.exp(-delta*4));
+    }
+    clockFaceMaterial.emissiveIntensity=restorations.clock*.55;
+    gardenBlooms.scale.y=.34+restorations.greenhouse*.66;
+    glass.emissive.set('#78b38e');glass.emissiveIntensity=restorations.greenhouse*.14;
+    stationLanterns.forEach(lantern=>{lantern.material.emissiveIntensity=.03+restorations.platform*.95;});
+    minute.rotation.z=THREE.MathUtils.lerp(-.4,-Math.PI/2,restorations.clock);
+    hour.rotation.z=THREE.MathUtils.lerp(.85,-Math.PI/6,restorations.clock);
+    if(celebration) {
+      const age=(now-celebration.started)/1000;
+      if(age>=2.3){celebration=null;deliveryEnvelope.visible=false;deliverySparks.visible=false;}
+      else {
+        deliveryEnvelope.position.y=2.1+(reducedMotion?0:Math.min(age,1.7)*.5);
+        deliveryEnvelope.scale.setScalar(age>1.8?Math.max(0,(2.3-age)/.5):1);
+        deliveryEnvelope.rotation.z=reducedMotion?0:Math.sin(age*2.4)*.08;
+        if(!reducedMotion) {
+          for(let i=0;i<deliverySparks.count;i++) {
+            const angle=i*2.39996,radius=.3+age*(.25+(i%3)*.07);
+            sparkTransform.position.set(celebration.x+Math.cos(angle)*radius,1.2+age*.7+(i%4)*.13,celebration.z+Math.sin(angle)*radius);
+            sparkTransform.rotation.set(age+i,angle,age*.5);sparkTransform.scale.setScalar(Math.max(0,1-age/2.3));sparkTransform.updateMatrix();
+            deliverySparks.setMatrixAt(i,sparkTransform.matrix);
+          }
+          deliverySparks.instanceMatrix.needsUpdate=true;
+        }
+      }
+    }
     let nearest=null,best=1.75;
     for(const [id,a]of Object.entries(ANCHORS)) {
-      const visible=(!a.phase||a.phase===phase)&&(id!=='final'||(progress&&Object.values(progress.solved||{}).filter(Boolean).length===3));
+      const visible=anchorAvailable(id,a);
       const label=labels.get(id),marker=markers.get(id);
-      if(label.hidden===visible)labelsDirty=true;
-      label.hidden=!visible;marker.visible=visible;
-      if(!visible)continue;
-      marker.position.y=1.35+Math.sin(t*2+a.x)*.08;marker.rotation.y=t*.6;
+      marker.visible=visible;
+      if(!visible){if(!label.hidden)labelsDirty=true;label.hidden=true;continue;}
       const d=Math.hypot(player.group.position.x-a.x,player.group.position.z-a.z);
       if(d<best){best=d;nearest=id;}
-      label.classList.toggle('near',d<1.75);
-      if(id==='clock'||id==='greenhouse'||id==='platform')label.classList.toggle('delivered',Boolean(progress?.solved?.[id]));
+      const nearby=d<1.75,targeted=pending===id,completed=anchorComplete(id),state=labelStates.get(id);
+      projected.set(a.x,1.8,a.z).project(camera);
+      const offscreen=camera.zoom>1.15&&(Math.abs(projected.x)>1.03||Math.abs(projected.y)>.91);
+      const labelVisible=!offscreen||nearby||targeted;
+      if(label.hidden===labelVisible)labelsDirty=true;label.hidden=!labelVisible;
+      const compact=completed&&!nearby&&!targeted;
+      const priority=targeted?100:nearby?80:completed?0:40;
+      if(state.compact!==compact||state.completed!==completed||state.priority!==priority) {
+        state.compact=compact;state.completed=completed;state.priority=priority;
+        state.name.style.display=compact?'none':'';
+        state.glyph.textContent=completed?'✓':a.icon;
+        label.style.padding=compact?'4px':'';label.style.minWidth=compact?'28px':'';
+        label.style.borderRadius=compact?'50%':'';label.style.opacity=compact?'.66':'1';
+        label.title=completed?`${a.name} · ${id==='keeper'?'已交谈':progress?.solved?.[id]?'已投递':'已收好'}`:a.name;
+        label.classList.toggle('delivered',completed);labelsDirty=true;
+      }
+      marker.material=completed?completeMarkerMaterial:markerMaterial;
+      marker.scale.setScalar(targeted?1.35:completed?.68:1);
+      marker.position.y=1.35+Math.sin(t*2+a.x)*.08;marker.rotation.y=t*.6;
+      label.classList.toggle('near',nearby||targeted);
       label.disabled=paused;
     }
     if(labelsDirty)layoutLabels();
     if(nearest!==nearId){nearId=nearest;callbacks.onNear?.(nearest?{id:nearest,...ANCHORS[nearest]}:null);}
-    clockHands.rotation.z=phase==='echo'?Math.sin(t*.15)*.2:0;
+    clockHands.rotation.z=phase==='echo'&&!progress?.solved?.clock?Math.sin(t*.15)*.2:0;
     renderer.render(scene,camera);
   }
   renderer.setAnimationLoop(animate);
 
   function setPhase(next) {
+    const value=next==='echo'?'echo':'present';
+    if(phaseInitialized&&value===phase)return;
+    phaseInitialized=true;
     labelsDirty=true;
-    phase=next==='echo'?'echo':'present';
+    phase=value;
     const echo=phase==='echo';
-    seaUniforms.deep.value.set(echo?'#817d9b':'#4a999a');seaUniforms.shallow.value.set(echo?'#c0b4c3':'#8bc4bc');
-    scene.background.set(echo?'#a6a0b7':'#81b9b4');scene.fog.color.copy(scene.background);
-    hemi.color.set(echo?'#ece4fc':'#e7f6ef');sun.color.set(echo?'#f5dce4':'#ffedcc');
-    foliage.forEach((mat,i)=>mat.color.set(echo?(i%2?'#bc8d9b':'#a995b2'):(i%2?'#759d80':'#6b947e')));
+    const colors=[
+      [seaUniforms.deep.value,echo?'#817d9b':'#4a999a'],
+      [seaUniforms.shallow.value,echo?'#c0b4c3':'#8bc4bc'],
+      [scene.background,echo?'#a6a0b7':'#81b9b4'],
+      [hemi.color,echo?'#ece4fc':'#e7f6ef'],
+      [sun.color,echo?'#f5dce4':'#ffedcc'],
+      ...foliage.map((mat,i)=>[mat.color,echo?(i%2?'#bc8d9b':'#a995b2'):(i%2?'#759d80':'#6b947e')]),
+    ].map(([color,target])=>({color,start:color.clone(),target:new THREE.Color(target)}));
+    if(reducedMotion){colors.forEach(tween=>tween.color.copy(tween.target));phaseTransition=null;scene.fog.color.copy(scene.background);}
+    else phaseTransition={started:performance.now(),colors};
     presentStamp.visible=!echo;echoStamp.visible=echo;path=[];pending=null;destination.visible=false;
     container.dataset.phase=phase;
   }
   return {
     setPhase,
-    setProgress(state){progress=state;labelsDirty=true;},
+    setProgress,setZoom,setReducedMotion,setQuality,celebrate,
     setPaused(value){paused=Boolean(value);if(paused){keySet.clear();path=[];pending=null;destination.visible=false;}},
     moveTo,
     getDebug(){
       const anchors={};for(const [id,a]of Object.entries(ANCHORS)) {
         projected.set(a.x,1.8,a.z).project(camera);
-        anchors[id]={...a,screen:labelPositions.get(id)||{x:(projected.x*.5+.5)*width,y:(-projected.y*.5+.5)*height},reachable:!!nearestCell(a.x,a.z)};
+        anchors[id]={...a,screen:labelPositions.get(id)||{x:(projected.x*.5+.5)*width,y:(-projected.y*.5+.5)*height},reachable:!!nearestCell(a.x,a.z),visible:!labels.get(id).hidden,completed:anchorComplete(id),compact:labelStates.get(id).compact};
       }
-      return {phase,paused,frames,player:{x:player.group.position.x,z:player.group.position.z},pathLength:path.length,nearId,anchors,framing,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
+      return {phase,paused,frames,player:{x:player.group.position.x,z:player.group.position.z},pathLength:path.length,nearId,anchors,framing,zoom,renderZoom:camera.zoom,quality,reducedMotion,phaseTransitioning:Boolean(phaseTransition),restorations:{...restorations},celebrating:Boolean(celebration),fps:averageFrameMs?Math.round(10000/averageFrameMs)/10:0,pixelRatio:renderer.getPixelRatio(),shadows:renderer.shadowMap.enabled,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
     },
     dispose(){
       disposed=true;renderer.setAnimationLoop(null);resizeObserver.disconnect();
@@ -680,7 +873,7 @@ export function createWorld(container, callbacks = {}) {
       labels.forEach(label=>label.remove());
       const geometries=new Set(),materials=new Set(),textures=new Set();
       scene.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material)for(const mat of Array.isArray(object.material)?object.material:[object.material]){materials.add(mat);if(mat.map)textures.add(mat.map);}});
-      geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());renderer.dispose();renderer.domElement.remove();
+      deliverySparks.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();renderer.dispose();renderer.domElement.remove();
     },
   };
 }

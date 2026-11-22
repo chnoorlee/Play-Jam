@@ -1,5 +1,5 @@
 export function createAudio() {
-  let context, master, timer, enabled = false, phase = 'present', beat = 0;
+  let context, master, timer, enabled = false, phase = 'present', beat = 0, volume = .58;
   let transition = Promise.resolve();
   const scale = [48, 55, 60, 62, 64, 67, 71, 72];
   function note(midi, duration = 2.8, gain = 0.07) {
@@ -30,7 +30,7 @@ export function createAudio() {
         if (!Audio) return false;
         context = new Audio();
         master = context.createGain();
-        master.gain.value = .58;
+        master.gain.value = volume;
         master.connect(context.destination);
       }
       if (!enabled) {
@@ -52,6 +52,11 @@ export function createAudio() {
       return transition;
     },
     setPhase(value) { phase = value; },
+    setVolume(value) {
+      if (!Number.isFinite(value)) return;
+      volume = Math.max(0, Math.min(1, value));
+      if (master) master.gain.setTargetAtTime(volume, context.currentTime, .04);
+    },
     chime() { note(phase === 'echo' ? 74 : 76, 1.3, .045); },
     delivery() { [0, 4, 7, 12].forEach((offset, i) => setTimeout(() => note(60 + offset, 2, .08), i * 130)); },
     isEnabled() { return enabled; },

@@ -26,7 +26,7 @@ const visit = async id => {
 const assertLayout = async () => {
   const failures = await page.evaluate(() => {
     const width = innerWidth, height = innerHeight;
-    return [...document.querySelectorAll('#dialogue button,#journal button,.hud button,.game-footer button')]
+    return [...document.querySelectorAll('#dialogue button,.modal:not([hidden]) button,.modal:not([hidden]) select,.modal:not([hidden]) input,.hud button,.game-footer button,.camera-tools button')]
       .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
       .filter(element => { const r = element.getBoundingClientRect(); return r.x < -1 || r.y < -1 || r.right > width + 1 || r.bottom > height + 1; })
       .map(element => element.textContent.trim() || element.getAttribute('aria-label'));
@@ -59,6 +59,66 @@ try {
   const moved = await page.evaluate(() => window.__game.getWorld());
   assert(Math.hypot(moved.player.x - next.player.x, moved.player.z - next.player.z) > .2);
   check('Keyboard moves the character');
+  await page.click('#zoom-in');
+  await page.waitForFunction(() => window.__game.getWorld().renderZoom > 1.15);
+  assert((await page.evaluate(() => window.__game.getWorld())).zoom > 1);
+  await page.click('#zoom-reset');
+  await page.waitForFunction(() => window.__game.getWorld().renderZoom < 1.01);
+  check('Camera zoom follows the character and returns to the overview');
+  await page.click('#settings-button');
+  await page.selectOption('#quality-setting', 'low');
+  await page.check('#motion-setting'); await page.check('#text-setting');
+  await page.locator('#volume-setting').evaluate(input => { input.value = '31'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  assert.equal((await page.evaluate(() => window.__game.getWorld())).quality, 'low');
+  assert.equal((await page.evaluate(() => window.__game.getWorld())).reducedMotion, true);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await assertLayout(); await screen('settings-small-mobile');
+  await page.setViewportSize({ width: 1440, height: 960 });
+  const backupEvent = page.waitForEvent('download');
+  await page.click('#backup-save');
+  const backup = await backupEvent, backupStream = await backup.createReadStream();
+  let backupText = ''; for await (const chunk of backupStream) backupText += chunk.toString('utf8');
+  assert.equal(JSON.parse(backupText).game, 'the-last-post');
+  const beforeImport = await page.evaluate(() => window.__game.getState());
+  const newerBackup = JSON.parse(backupText); newerBackup.save.phase = 'echo';
+  await page.evaluate(() => {
+    window.originalFileText = File.prototype.text;
+    File.prototype.text = async function () {
+      const content = await window.originalFileText.call(this);
+      if (this.name === 'older.json') await new Promise(resolve => setTimeout(resolve, 500));
+      return content;
+    };
+  });
+  await page.locator('#save-file').setInputFiles({ name: 'older.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
+  await page.locator('#save-file').setInputFiles({ name: 'newer.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(newerBackup)) });
+  await page.waitForSelector('#confirm-restore'); await page.waitForTimeout(650);
+  await page.click('#confirm-restore');
+  assert.equal((await page.evaluate(() => window.__game.getState())).phase, 'echo', 'only the last selected backup can restore progress');
+  await page.evaluate(() => { File.prototype.text = window.originalFileText; delete window.originalFileText; });
+  await page.click('#settings-button');
+  await page.locator('#save-file').setInputFiles({ name: 'valid.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
+  await page.waitForSelector('#confirm-restore');
+  await page.locator('#save-file').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+  await page.waitForFunction(() => !document.querySelector('#confirm-restore'));
+  check('Last selected backup wins; invalid replacement removes the old confirmation');
+  await page.locator('#save-file').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(backupText) });
+  await page.waitForSelector('#confirm-restore');
+  assert.equal((await page.evaluate(() => window.__game.getState())).phase, 'echo', 'import preview never replaces progress before confirmation');
+  await page.click('#confirm-restore');
+  assert.deepEqual(await page.evaluate(() => window.__game.getState()), beforeImport);
+  await page.reload({ waitUntil: 'networkidle' }); await page.click('#continue-button');
+  await page.click('#settings-button');
+  assert.equal(await page.inputValue('#quality-setting'), 'low');
+  assert.equal(await page.inputValue('#volume-setting'), '31');
+  assert.equal(await page.isChecked('#motion-setting'), true); assert.equal(await page.isChecked('#text-setting'), true);
+  await page.uncheck('#motion-setting'); await page.uncheck('#text-setting');
+  await page.locator('#settings [data-close]').click();
+  check('Reading, motion, volume and quality preferences persist; backup previews and restores');
+  await visit('keeper'); await page.keyboard.press('j');
+  await page.click('#tab-deliveries'); await page.click('[data-track="greenhouse"]');
+  await page.waitForFunction(() => !window.__game.getDialogue() && !window.__game.getWorld().paused && window.__game.getWorld().pathLength > 0);
+  assert.equal((await page.evaluate(() => window.__game.getState())).activeMission, 'greenhouse');
+  check('Journal navigation during dialogue closes it and starts walking to the selected delivery');
   await visit('clock');
   await select('resolve:clock');
   assert.match(await page.locator('.dialogue-text').textContent(), /家书/);
@@ -66,7 +126,17 @@ try {
   check('Puzzle cannot resolve before its clue');
   await visit('letter'); await select('read:clock'); await select('close');
   await visit('clock');
-  for (const [index, count] of [[0, 3], [1, 1], [2, 2]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
+  await page.click('.hint-button');
+  assert.equal(await page.locator('.hint-pages article').count(), 1);
+  await page.click('#next-hint'); await page.click('#next-hint');
+  assert.equal(await page.locator('.hint-pages article').count(), 3);
+  assert.match(await page.locator('.hint-pages article').last().textContent(), /离港 3 次，熄灯 2 次，归家 0 次/);
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'ARTICLE');
+  await page.keyboard.press('Tab');
+  assert(await page.evaluate(() => document.querySelector('#hints').contains(document.activeElement)), 'Tab from the last hint stays in the modal');
+  await page.locator('#hints [data-close]').click();
+  check('Three-stage hints preserve the active puzzle and use its current values');
+  for (const [index, count] of [[0, 3], [1, 2]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
   await screen('clock-puzzle');
   await select('resolve:clock'); await select('decision:clock:truth'); await close();
   assert.equal((await page.evaluate(() => window.__game.getState())).solved.clock, true);
@@ -75,19 +145,33 @@ try {
   await visit('seed-note'); await select('read:greenhouse'); await close();
   await page.click('#phase-button');
   assert.equal((await page.evaluate(() => window.__game.getState())).phase, 'echo');
+  await page.waitForFunction(() => !window.__game.getWorld().phaseTransitioning);
   await screen('echo-desktop');
   await visit('greenhouse');
   for (const [index, count] of [[0, 1], [1, 2], [2, 3]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
+  assert.equal(await page.locator('.light-route path.lit').count(), 4);
+  await screen('greenhouse-light-route');
   await select('resolve:greenhouse'); await select('decision:greenhouse:share'); await close();
   check('Echo-only greenhouse puzzle and choice');
 
   await visit('echo-stamp'); await select('stamp:echo'); await close();
   await page.click('#phase-button');
   await visit('present-stamp'); await select('stamp:present'); await close();
-  await visit('platform'); await select('resolve:platform'); await select('decision:platform:farewell'); await close();
+  await visit('platform'); await select('resolve:platform');
+  await select('sequence:platform:south');
+  assert.equal(await page.locator('.address-slots .filled').count(), 1);
+  await select('sequence:platform:reset');
+  for (const fragment of ['north', 'closed', 'south', 'reunion']) await select(`sequence:platform:${fragment}`);
+  await select('decision:platform:farewell'); await close();
   check('Both time layers navigable and station letter deliverable');
   await page.click('#journal-button');
+  await page.click('#tab-clues');
   assert((await page.locator('.journal-entry').count()) >= 7);
+  await page.click('#tab-receipts');
+  assert.equal(await page.locator('.receipt-entry').count(), 3);
+  assert.equal(await page.locator('.receipt-entry .keepsake').count(), 3);
+  await page.click('#tab-deliveries'); assert.equal(await page.locator('.mission-row.delivered').count(), 3);
+  await page.click('#tab-clues');
   await screen('journal-desktop');
   await page.locator('#journal [data-close]').click();
   const beforeReload = await page.evaluate(() => window.__game.getState());
@@ -112,6 +196,12 @@ try {
       assert.match(text, /余信/);
       assert.match(text, /AI 辅助制作/);
       check('Ending text export downloads the actual story and disclosure');
+      const postcardEvent = page.waitForEvent('download'); await page.click('#postcard-button');
+      const postcard = await postcardEvent, postcardStream = await postcard.createReadStream(), chunks = [];
+      for await (const chunk of postcardStream) chunks.push(chunk);
+      const postcardImage = PNG.sync.read(Buffer.concat(chunks));
+      assert.equal(postcardImage.width, 1280); assert.equal(postcardImage.height, 900);
+      check('Personal ending postcard exports a valid PNG');
     }
     if (ending === 'carry') {
       await page.setViewportSize({ width: 844, height: 390 });
@@ -132,7 +222,7 @@ try {
   await page.click('#resume-button');
   check('Pause prevents movement');
 
-  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1920, height: 1080 }]) {
+  for (const viewport of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(viewport);
     await page.waitForTimeout(400);
     await assertLayout();

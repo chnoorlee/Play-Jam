@@ -17,11 +17,17 @@
         <nav aria-label="游戏菜单">
           <button id="journal-button" class="icon-button" aria-label="信笺簿" data-tooltip="信笺簿 · J"><i data-lucide="book-open"></i><span id="journal-dot" class="notification" hidden></span></button>
           <button id="audio-button" class="icon-button" aria-label="开启声音" data-tooltip="声音"><i data-lucide="volume-x"></i></button>
+          <button id="settings-button" class="icon-button" aria-label="设置" data-tooltip="设置"><i data-lucide="settings-2"></i></button>
           <button id="pause-button" class="icon-button" aria-label="暂停" data-tooltip="暂停 · Esc"><i data-lucide="pause"></i></button>
         </nav>
       </header>
       <aside class="location-caption" aria-hidden="true"><span class="tiny-line"></span><span>白沙群岛</span><span class="coordinates">24° 36′ N &nbsp; 118° 04′ E</span></aside>
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="camera-tools" class="camera-tools" role="group" aria-label="镜头缩放">
+        <button id="zoom-in" class="icon-button" aria-label="放大场景" data-tooltip="放大"><i data-lucide="zoom-in"></i></button>
+        <button id="zoom-reset" class="icon-button" aria-label="全景" data-tooltip="全景"><i data-lucide="scan"></i></button>
+        <button id="zoom-out" class="icon-button" aria-label="缩小场景" data-tooltip="缩小"><i data-lucide="zoom-out"></i></button>
+      </div>
       <footer class="game-footer">
         <div class="delivery-status"><span class="eyebrow">待寄之事</span><p id="objective">与守夜人见面</p><div id="stamps" class="stamps" aria-label="投递进度"></div></div>
         <div class="world-actions"><button id="interact-button" class="interact-button" hidden><i data-lucide="message-circle"></i><span>交谈</span></button><button id="phase-button" class="phase-button" aria-label="切换至回声"><i data-lucide="eclipse"></i><span><small>潮汐之间</small><strong id="phase-label">此刻</strong></span><i class="phase-arrow" data-lucide="arrow-left-right"></i></button></div>
@@ -33,6 +39,9 @@
       <div id="modal-backdrop" class="modal-backdrop" hidden></div>
       <section id="journal" class="journal modal" aria-modal="true" role="dialog" aria-labelledby="journal-title" hidden></section>
       <section id="pause" class="pause-modal modal" aria-modal="true" role="dialog" aria-labelledby="pause-title" hidden></section>
+      <section id="settings" class="settings-modal modal" aria-modal="true" role="dialog" aria-labelledby="settings-title" hidden></section>
+      <section id="hints" class="hints-modal modal" aria-modal="true" role="dialog" aria-labelledby="hints-title" hidden></section>
+      <input id="save-file" type="file" accept="application/json,.json" hidden />
       <section id="ending" class="ending-overlay" aria-labelledby="ending-title" hidden></section>
       <div id="load-error" class="load-error" hidden></div>
     </main>

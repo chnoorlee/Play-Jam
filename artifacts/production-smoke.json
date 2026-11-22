@@ -1,13 +1,13 @@
 {
-  "testedAt": "2026-11-21T06:13:31.365Z",
+  "testedAt": "2026-11-22T04:04:21.392Z",
   "errors": [],
   "requests": [
-    "http://127.0.0.1:64559/",
-    "http://127.0.0.1:64559/assets/index-D_o8l23H.js",
-    "http://127.0.0.1:64559/assets/index-B5x0Vncf.css"
+    "http://127.0.0.1:51245/",
+    "http://127.0.0.1:51245/assets/index-DKn8byWQ.js",
+    "http://127.0.0.1:51245/assets/index-D9aRGVfe.css"
   ],
   "passed": true,
   "noDevelopmentBridge": true,
   "localResourcesOnly": true,
-  "canvasColors": 287
+  "canvasColors": 282
 }
