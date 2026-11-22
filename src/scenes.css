@@ -237,3 +237,13 @@
 
 .reduced-motion :is(.scene-backdrop, .scene-light, .scene-cast) { transform: none; }
 .reduced-motion #scene-stage[data-speaking="true"] .scene-cast { scale: none; }
+
+@media (max-width: 740px) {
+  html:lang(en) .scene-title {
+    max-width: calc(100% - 173px);
+    font-size: 24px;
+  }
+  html:lang(en) .scene-exit { font-size: 13px; gap: 5px; }
+  html:lang(en) .scene-action { text-align: center; gap: 5px; }
+  html:lang(en) .scene-action svg { flex-shrink: 0; }
+}

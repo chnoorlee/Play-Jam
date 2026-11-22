@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import PF from 'pathfinding';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { t } from './i18n.js';
 
 const TAU = Math.PI * 2;
 const ANCHORS = {
@@ -261,6 +262,7 @@ export function createWorld(container, callbacks = {}) {
     }
     beam([x,y+h+0.04,z-d/2-0.05],[x,y+h+0.04,z+d/2+0.05],0.075,trim,parent);
   }
+  const paintedSigns = [];
   function sign(text, width, height, x,y,z, color='#f4efe0',ink='#2e5653') {
     const canvas=document.createElement('canvas'); canvas.width=512; canvas.height=192;
     const ctx=canvas.getContext('2d');
@@ -268,15 +270,20 @@ export function createWorld(container, callbacks = {}) {
     texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
     const m=mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture}),x,y,z);
     m.castShadow=false;
-    m.userData.setText=next=>{
+    m.userData.setText=source=>{
+      m.userData.caption=source;
+      const caption=t(source);
       ctx.fillStyle=color;ctx.fillRect(0,0,512,192);
       ctx.strokeStyle=ink;ctx.lineWidth=5;ctx.strokeRect(13,13,486,166);
       ctx.lineWidth=1.5;ctx.strokeRect(24,24,464,144);
       ctx.fillStyle=ink;ctx.font='600 65px "Microsoft YaHei", sans-serif';
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(next,256,100,437);
+      const fontSize=Math.min(65,Math.floor(65*437/ctx.measureText(caption).width));
+      ctx.font=`600 ${fontSize}px "Microsoft YaHei", sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(caption,256,100);
       texture.needsUpdate=true;
     };
     m.userData.setText(text);
+    paintedSigns.push(m);
     return m;
   }
   function arch(width,height,depth,mat,x,y,z,parent=scene) {
@@ -721,6 +728,13 @@ export function createWorld(container, callbacks = {}) {
   const cameraTools=document.getElementById('camera-tools');
   const markers=new Map();
   const labelStates=new Map();
+  function refreshAnchorText(id, completed) {
+    const label=labels.get(id);
+    const name=t(ANCHORS[id].name);
+    labelStates.get(id).name.textContent=name;
+    label.setAttribute('aria-label',name);
+    label.title=completed ? name+' · '+t(id==='keeper'?'已交谈':progress?.solved?.[id]?'已投递':'已收好') : name;
+  }
   const markerMaterial=new THREE.MeshStandardMaterial({color:'#f6d28c',emissive:'#eebd6b',emissiveIntensity:.35});
   const completeMarkerMaterial=new THREE.MeshStandardMaterial({color:'#8cb39a',emissive:'#8cb39a',emissiveIntensity:.12});
   const markerGeometry=new THREE.OctahedronGeometry(.13);
@@ -1088,7 +1102,7 @@ export function createWorld(container, callbacks = {}) {
         state.glyph.textContent=completed?'✓':a.icon;
         label.style.padding=compact?'4px':'';label.style.minWidth=compact?'28px':'';
         label.style.borderRadius=compact?'50%':'';label.style.opacity=compact?'.66':'1';
-        label.title=completed?`${a.name} · ${id==='keeper'?'已交谈':progress?.solved?.[id]?'已投递':'已收好'}`:a.name;
+        refreshAnchorText(id,completed);
         label.classList.toggle('delivered',completed);labelsDirty=true;
       }
       marker.material=completed?completeMarkerMaterial:markerMaterial;
@@ -1126,6 +1140,11 @@ export function createWorld(container, callbacks = {}) {
   }
   return {
     setPhase,
+    refreshLanguage(){
+      for(const sign of paintedSigns)sign.userData.setText(sign.userData.caption);
+      for(const [id,state] of labelStates)refreshAnchorText(id,state.completed);
+      labelsDirty=true;
+    },
     setProgress,setZoom,setReducedMotion,setQuality,celebrate,
     setPaused(value){
       const next=Boolean(value);

@@ -34,6 +34,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check production gameplay
         run: node tests/production.e2e.js
+      - name: Check Chinese and English gameplay
+        run: node tests/language.e2e.js
       - name: Include licenses
         run: cp LICENSE THIRD_PARTY_NOTICES.md dist/
       - name: Upload website

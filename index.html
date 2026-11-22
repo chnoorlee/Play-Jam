@@ -35,6 +35,13 @@
         <div class="world-actions"><button id="interact-button" class="interact-button" hidden><i data-lucide="message-circle"></i><span>交谈</span></button><button id="phase-button" class="phase-button" aria-label="切换至回声"><i data-lucide="eclipse"></i><span><small>潮汐之间</small><strong id="phase-label">此刻</strong></span><i class="phase-arrow" data-lucide="arrow-left-right"></i></button></div>
       </footer>
       <section id="intro" class="intro-overlay" aria-label="开始游戏">
+        <label class="intro-language-control" for="intro-language">
+          <span translate="no" lang="en">Language</span>
+          <select id="intro-language" aria-label="语言 / Language">
+            <option lang="zh-CN" translate="no" value="zh-CN">中文</option>
+            <option lang="en" translate="no" value="en">English</option>
+          </select>
+        </label>
         <div class="intro-content">
           <p class="intro-kicker">一封写给未曾告别的人</p>
           <h2>余信<span lang="en">THE LAST POST</span></h2>

@@ -1,12 +1,13 @@
 import { normalizeSave } from './story.js';
 
 export function defaultSettings({ narrow = false, reducedMotion = false } = {}) {
-  return { quality: narrow ? 'low' : 'high', reducedMotion, largeText: false, volume: 0.58 };
+  return { language: 'zh-CN', quality: narrow ? 'low' : 'high', reducedMotion, largeText: false, volume: 0.58 };
 }
 
 export function normalizeSettings(value, defaults = defaultSettings()) {
   const input = value && typeof value === 'object' ? value : {};
   return {
+    language: ['zh-CN', 'en'].includes(input.language) ? input.language : defaults.language,
     quality: ['low', 'high'].includes(input.quality) ? input.quality : defaults.quality,
     reducedMotion: typeof input.reducedMotion === 'boolean' ? input.reducedMotion : defaults.reducedMotion,
     largeText: typeof input.largeText === 'boolean' ? input.largeText : defaults.largeText,

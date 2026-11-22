@@ -3,8 +3,9 @@ import { createWorld } from './world.js';
 import { createScenes, sceneForAnchor } from './scenes.js';
 import { createState, normalizeSave, getChapter, getObjective, getJournal, getHint, getReceipts, interact, choose, setPhase, adjustDial, adjustMirror, getPuzzle, getEnding } from './story.js';
 import { createAudio } from './audio.js';
+import { getLanguage, setLanguage, localize, t } from './i18n.js';
 import { defaultSettings, normalizeSettings, encodeBackup, decodeBackup } from './settings.js';
-import harborCover from './art/harbor-cover.webp';
+import { exportEnding, exportPostcard } from './ending-export.js';
 import shenPortrait from './art/portraits/shen.webp';
 import caoPortrait from './art/portraits/cao.webp';
 import yePortrait from './art/portraits/ye.webp';
@@ -17,7 +18,11 @@ const $ = selector => document.querySelector(selector);
 const icons = { Mail, BookOpen, Volume2, VolumeX, Pause, Play, Eclipse, ArrowLeftRight, ArrowUpRight, ArrowRight, MessageCircle, X, RotateCw, Check, Flower2, Clock3, TrainFront, Feather, Download, Settings2, ZoomIn, ZoomOut, Scan, Lightbulb, Upload, ChevronRight, ArrowDown };
 const icon = name => `<i data-lucide="${name}"></i>`;
 const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const refreshIcons = () => createIcons({ icons, attrs: { 'aria-hidden': 'true' } });
+function refreshIcons() {
+  createIcons({ icons, attrs: { 'aria-hidden': 'true' } });
+  syncLanguageControls();
+  if (getLanguage() === 'en') localize($('#app'));
+}
 const SAVE_KEY = 'the-last-post.save.v1';
 const SETTINGS_KEY = 'the-last-post.settings.v1';
 const portraits = new Map([['沈伯', shenPortrait], ['曹遥', caoPortrait], ['叶青', yePortrait], ['阿岚', lanPortrait], ['许渡', xuPortrait]]);
@@ -39,6 +44,37 @@ try {
   saveAvailable = state.started;
 } catch { storageWarning = true; }
 try { settings = normalizeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)), defaults); } catch { /* Defaults remain usable when browser storage is unavailable. */ }
+
+function syncLanguageControls() {
+  for (const selector of ['#intro-language', '#language-setting']) {
+    const control = $(selector);
+    if (control) control.value = getLanguage();
+  }
+  const target = getLanguage() === 'en' ? 'zh-CN' : 'en';
+  for (const control of document.querySelectorAll('[data-switch-language]')) {
+    control.lang = target;
+    control.textContent = target === 'en' ? 'English' : '中文';
+  }
+}
+
+function applyLanguage() {
+  setLanguage(settings.language);
+  document.documentElement.lang = getLanguage();
+  document.title = t('余信 · The Last Post');
+  document.querySelector('meta[name="description"]').content = t('余信：一座即将沉没的邮局，三封迟到的信。原创 2.5D 叙事解谜游戏。');
+  world?.refreshLanguage();
+  syncLanguageControls();
+  localize($('#app'));
+}
+
+function chooseLanguage(language) {
+  if (language === getLanguage()) return;
+  settings.language = language;
+  applyLanguage();
+  storeSettings();
+}
+
+applyLanguage();
 
 function applySettings() {
   world?.setQuality(settings.quality);
@@ -62,6 +98,7 @@ function download(content, filename, type) {
 function toast(text) {
   clearTimeout(toastTimer);
   $('#toast').textContent = text;
+  if (getLanguage() === 'en') localize($('#toast'));
   $('#toast').classList.add('visible');
   toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 3400);
 }
@@ -112,7 +149,7 @@ function displayDialogue(value) {
   if (value.ending) { dialogue = null; $('#dialogue').hidden = true; showEnding(); return; }
   const portrait = portraits.get(speaker);
   const portraitImage = portrait ? `<img class="speaker-portrait" src="${escape(portrait)}" width="48" height="48" alt="" decoding="async">` : '';
-  $('#dialogue').innerHTML = `<div class="dialogue-header"><div class="speaker-identity">${portraitImage}<span class="speaker">${value.receipt ? icon('mail') : ''}${escape(value.speaker)}</span></div><button class="dialogue-close" aria-label="收起对话">${icon('x')}</button></div><h2>${escape(value.title)}</h2><p class="dialogue-text">${escape(value.text)}</p><div id="puzzle-slot"></div><div class="dialogue-choices">${value.choices.map(choice => `<button class="choice-button" data-action="${escape(choice.action)}"><span>${escape(choice.label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
+  $('#dialogue').innerHTML = `<div class="dialogue-header"><div class="speaker-identity">${portraitImage}<span class="speaker">${value.receipt ? icon('mail') : ''}${escape(value.speaker)}</span></div><button type="button" class="text-button dialogue-language" data-switch-language translate="no" lang="en">English</button><button class="dialogue-close" aria-label="收起对话">${icon('x')}</button></div><h2>${escape(value.title)}</h2><p class="dialogue-text">${escape(value.text)}</p><div id="puzzle-slot"></div><div class="dialogue-choices">${value.choices.map(choice => `<button class="choice-button" data-action="${escape(choice.action)}"><span>${escape(choice.label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
   $('.dialogue-close').addEventListener('click', dismissDialogue);
   $('#dialogue').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => act(button.dataset.action)));
   if (value.puzzle) renderPuzzle(value.puzzle);
@@ -264,14 +301,15 @@ function showHints(id = state.activeMission || Object.keys(missions).find(key =>
 }
 
 function showSettings() {
-  $('#settings').innerHTML = `<div class="modal-title"><h2 id="settings-title">灯下的片刻</h2><button class="icon-button" data-close aria-label="关闭设置">${icon('x')}</button></div><div class="settings-row"><label for="quality-setting">画面</label><select id="quality-setting"><option value="low" ${settings.quality === 'low' ? 'selected' : ''}>流畅</option><option value="high" ${settings.quality === 'high' ? 'selected' : ''}>精细</option></select></div><div class="settings-row"><label for="volume-setting">音量</label><input id="volume-setting" type="range" min="0" max="100" value="${Math.round(settings.volume * 100)}"/><output id="volume-value" for="volume-setting">${Math.round(settings.volume * 100)}%</output></div><label class="settings-row" for="motion-setting"><span>减弱动态</span><input id="motion-setting" type="checkbox" ${settings.reducedMotion ? 'checked' : ''}/></label><label class="settings-row" for="text-setting"><span>大号文字</span><input id="text-setting" type="checkbox" ${settings.largeText ? 'checked' : ''}/></label><div class="save-actions"><button id="backup-save" class="text-button">${icon('download')} 备份投递记录</button><button id="restore-save" class="text-button">${icon('upload')} 恢复投递记录</button></div><p class="save-meta">${storageWarning ? '浏览器无法自动保存，请备份记录。' : '投递记录保存在这个浏览器。'} · 第一章 1.1</p><div id="restore-preview"></div>`;
+  $('#settings').innerHTML = `<div class="modal-title"><h2 id="settings-title">灯下的片刻</h2><button class="icon-button" data-close aria-label="关闭设置">${icon('x')}</button></div><div class="settings-row"><label for="language-setting">语言 / Language</label><select id="language-setting"><option value="zh-CN" lang="zh-CN" translate="no">中文</option><option value="en" lang="en" translate="no">English</option></select></div><div class="settings-row"><label for="quality-setting">画面</label><select id="quality-setting"><option value="low" ${settings.quality === 'low' ? 'selected' : ''}>流畅</option><option value="high" ${settings.quality === 'high' ? 'selected' : ''}>精细</option></select></div><div class="settings-row"><label for="volume-setting">音量</label><input id="volume-setting" type="range" min="0" max="100" value="${Math.round(settings.volume * 100)}"/><output id="volume-value" for="volume-setting">${Math.round(settings.volume * 100)}%</output></div><label class="settings-row" for="motion-setting"><span>减弱动态</span><input id="motion-setting" type="checkbox" ${settings.reducedMotion ? 'checked' : ''}/></label><label class="settings-row" for="text-setting"><span>大号文字</span><input id="text-setting" type="checkbox" ${settings.largeText ? 'checked' : ''}/></label><div class="save-actions"><button id="backup-save" class="text-button">${icon('download')} 备份投递记录</button><button id="restore-save" class="text-button">${icon('upload')} 恢复投递记录</button></div><p class="save-meta">${storageWarning ? '浏览器无法自动保存，请备份记录。' : '投递记录保存在这个浏览器。'} · 第一章 1.1</p><div id="restore-preview"></div>`;
+  $('#language-setting').addEventListener('change', event => chooseLanguage(event.target.value));
   $('#settings [data-close]').addEventListener('click', closeModal);
   $('#quality-setting').addEventListener('change', event => { settings.quality = event.target.value; storeSettings(); });
   $('#volume-setting').addEventListener('input', event => { settings.volume = Number(event.target.value) / 100; $('#volume-value').textContent = `${event.target.value}%`; storeSettings(); });
   $('#motion-setting').addEventListener('change', event => { settings.reducedMotion = event.target.checked; storeSettings(); });
   $('#text-setting').addEventListener('change', event => { settings.largeText = event.target.checked; storeSettings(); });
   $('#backup-save').disabled = !state.started;
-  $('#backup-save').addEventListener('click', () => download(encodeBackup(state), '余信-投递记录.json', 'application/json'));
+  $('#backup-save').addEventListener('click', () => download(encodeBackup(state), t('余信-投递记录.json'), 'application/json'));
   $('#restore-save').addEventListener('click', () => { $('#save-file').value = ''; $('#save-file').click(); });
   openModal('settings');
 }
@@ -299,66 +337,12 @@ function showEnding() {
   if (!ending) return;
   leaveScene(false);
   $('#ending').hidden = false;
-  $('#ending').innerHTML = `<div class="ending-content"><p class="ending-kicker">THE LAST POST · 余信</p><h2 id="ending-title">${escape(ending.title)}</h2><p class="ending-subtitle">${escape(ending.subtitle)}</p><p class="ending-story">${escape(ending.text)}</p><div class="reflections">${ending.reflections.map(text => `<p>${escape(text)}</p>`).join('')}</div><div class="keepsake-album">${ending.receipts.map(receipt => `<div>${icon(missions[receipt.id].glyph)}<small>${escape(receipt.recipient)}留下</small><strong>${escape(receipt.keepsake)}</strong></div>`).join('')}</div><div class="ending-actions"><button id="revisit-button" class="primary-button"><span>回到最后一夜</span>${icon('rotate-cw')}</button><button id="postcard-button" class="text-button">${icon('download')} 收藏夜航明信片</button><button id="export-button" class="text-button" aria-label="导出投递手记">${icon('feather')} 留下这封信</button></div><p class="ending-footnote">AI 辅助创作 · ChatGPT 插画 · 程序化港湾<br>谨以此夜，献给所有迟到的告别。</p></div>`;
+  $('#ending').innerHTML = `<div class="ending-content"><p class="ending-kicker">THE LAST POST · 余信</p><h2 id="ending-title">${escape(ending.title)}</h2><p class="ending-subtitle">${escape(ending.subtitle)}</p><p class="ending-story">${escape(ending.text)}</p><div class="reflections">${ending.reflections.map(text => `<p>${escape(text)}</p>`).join('')}</div><div class="keepsake-album">${ending.receipts.map(receipt => `<div>${icon(missions[receipt.id].glyph)}<small>${escape(receipt.recipient)}留下</small><strong>${escape(receipt.keepsake)}</strong></div>`).join('')}</div><div class="ending-actions"><button id="revisit-button" class="primary-button"><span>回到最后一夜</span>${icon('rotate-cw')}</button><button id="postcard-button" class="text-button">${icon('download')} 收藏夜航明信片</button><button id="export-button" class="text-button" aria-label="导出投递手记">${icon('feather')} 留下这封信</button><button type="button" class="text-button" data-switch-language translate="no" lang="en">English</button></div><p class="ending-footnote">AI 辅助创作 · ChatGPT 插画 · 程序化港湾<br>谨以此夜，献给所有迟到的告别。</p></div>`;
   $('#revisit-button').addEventListener('click', () => { state.ending = null; $('#ending').hidden = true; save(); update(); toast('灯还亮着，最后的决定仍在等你。'); });
-  $('#export-button').addEventListener('click', () => {
-    const content = `余信 · ${ending.subtitle}\n${ending.title}\n\n${ending.text}\n\n${ending.reflections.join('\n')}\n\n${ending.receipts.map(receipt => `${receipt.title}\n${receipt.body}\n纪念物：${receipt.keepsake}`).join('\n\n')}\n\n原创叙事游戏《余信 / The Last Post》· AI 辅助制作`;
-    download(content, '余信-投递手记.txt', 'text/plain;charset=utf-8');
-  });
-  $('#postcard-button').addEventListener('click', () => exportPostcard(ending));
+  $('#export-button').addEventListener('click', () => exportEnding(ending, download));
+  $('#postcard-button').addEventListener('click', () => exportPostcard(ending, download, toast));
   refreshIcons(); pauseWorld();
   requestAnimationFrame(() => $('#revisit-button').focus({ preventScroll: true }));
-}
-
-async function exportPostcard(ending) {
-  const illustration = new Image();
-  illustration.src = harborCover;
-  const illustrationReady = await illustration.decode().then(() => true, () => false);
-  const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 900;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) { toast('当前浏览器无法绘制明信片。'); return; }
-  ctx.fillStyle = '#f5e7c8'; ctx.fillRect(0, 0, 1280, 900);
-  for (let x = 0; x < 1280; x += 48) {
-    ctx.fillStyle = x % 96 === 0 ? '#9a4a3a' : '#2e6159';
-    ctx.beginPath();
-    ctx.moveTo(x, 0); ctx.lineTo(x + 24, 0); ctx.lineTo(x + 38, 14); ctx.lineTo(x + 14, 14);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#23474a'; ctx.fillRect(48, 60, 550, 647);
-  if (illustrationReady) {
-    const cropWidth = illustration.naturalHeight * 550 / 647;
-    ctx.drawImage(illustration, illustration.naturalWidth - cropWidth, 0, cropWidth, illustration.naturalHeight, 48, 60, 550, 647);
-  }
-  ctx.strokeStyle = '#aa9571'; ctx.lineWidth = 2; ctx.strokeRect(48, 60, 550, 647);
-  ctx.beginPath(); ctx.moveTo(626, 60); ctx.lineTo(626, 808); ctx.stroke();
-  ctx.fillStyle = '#23473f'; ctx.font = 'bold 29px "Microsoft YaHei", sans-serif'; ctx.fillText('白沙港 · 夜航', 48, 760);
-  ctx.font = '18px Georgia, serif'; ctx.fillText('THE LAST POST', 49, 792);
-  ctx.fillStyle = '#914536'; ctx.font = 'bold 22px "Microsoft YaHei", sans-serif'; ctx.fillText(ending.subtitle, 660, 123);
-  ctx.fillStyle = '#23473f'; ctx.font = 'bold 56px "Microsoft YaHei", sans-serif'; ctx.fillText(ending.title, 656, 223);
-  ctx.font = '20px "Microsoft YaHei", sans-serif';
-  let y = 330;
-  for (const text of ending.reflections) {
-    let line = '';
-    for (const char of text) {
-      if (ctx.measureText(line + char).width > 546) { ctx.fillText(line, 660, y); line = ''; y += 36; }
-      line += char;
-    }
-    ctx.fillText(line, 660, y);
-    y += 66;
-  }
-  ctx.save();
-  ctx.translate(1154, 733); ctx.rotate(-0.14);
-  ctx.strokeStyle = '#914536'; ctx.fillStyle = '#914536'; ctx.lineWidth = 2;
-  for (const radius of [64, 54]) { ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke(); }
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 16px "Microsoft YaHei", sans-serif'; ctx.fillText('白沙邮局', 0, -14);
-  ctx.font = 'bold 20px "Microsoft YaHei", sans-serif'; ctx.fillText('已送达', 0, 18);
-  ctx.restore();
-  ctx.fillStyle = '#4e6054'; ctx.font = '16px "Microsoft YaHei", sans-serif'; ctx.fillText('原创叙事与美术 · AI 辅助制作', 660, 856);
-  canvas.toBlob(blob => {
-    if (blob) download(blob, '余信-夜航明信片.png', 'image/png');
-    else toast('这张明信片未能导出。');
-  }, 'image/png');
 }
 
 function setZoom(value) {
@@ -379,9 +363,14 @@ async function startGame(continuing) {
   else toast('旧邮包还在，旅程接着走。');
 }
 
+$('#intro-language').addEventListener('change', event => chooseLanguage(event.target.value));
+document.addEventListener('click', event => {
+  if (event.target.closest('[data-switch-language]')) chooseLanguage(getLanguage() === 'en' ? 'zh-CN' : 'en');
+});
 $('#start-button').addEventListener('click', () => {
   if (saveAvailable) {
     $('#start-button').querySelector('span').textContent = '确认开启新旅程';
+    if (getLanguage() === 'en') localize($('#start-button'));
     if (!$('#start-button').dataset.confirmed) { $('#start-button').dataset.confirmed = 'true'; return; }
   }
   void startGame(false);
@@ -464,6 +453,7 @@ try {
       $('#interact-button').hidden = !id;
       const names = { keeper: '与沈伯交谈', letter: '拾起家书', clock: '查看钟楼', 'seed-note': '翻开种植手记', greenhouse: '查看温室', platform: '打开站台信箱', 'present-stamp': '拾起半枚邮戳', 'echo-stamp': '拾起半枚邮戳', final: '查看邮局的灯' };
       $('#interact-button span').textContent = names[id] || '查看';
+      if (getLanguage() === 'en') localize($('#interact-button'));
     },
     onMove() {},
   });

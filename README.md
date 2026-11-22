@@ -4,6 +4,10 @@
 
 [直接在线游玩](https://chnoorlee.github.io/Play-Jam/)：打开网页即可开始，无需安装。
 
+标题页右上角可选择中文或 English。游玩中可在设置、对白或结局页切换语言。当前对白、机关位置和投递进度都会保留，刷新后沿用上次选择。结局手记和明信片也会以当前语言导出。
+
+For English, choose **English** in the upper-right corner of the title screen. You can switch again in Settings, during dialogue, or on the ending screen without losing your place.
+
 ![《余信》封面原画，海港尽头亮着灯的白沙邮局](src/art/harbor-cover.webp)
 
 ## 运行
