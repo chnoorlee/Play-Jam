@@ -9,6 +9,7 @@ import shenPortrait from './art/portraits/shen.webp';
 import caoPortrait from './art/portraits/cao.webp';
 import yePortrait from './art/portraits/ye.webp';
 import lanPortrait from './art/portraits/lan.webp';
+import xuPortrait from './art/portraits/xu.webp';
 import './style.css';
 import './art/portraits.css';
 
@@ -19,7 +20,7 @@ const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;',
 const refreshIcons = () => createIcons({ icons, attrs: { 'aria-hidden': 'true' } });
 const SAVE_KEY = 'the-last-post.save.v1';
 const SETTINGS_KEY = 'the-last-post.settings.v1';
-const portraits = new Map([['沈伯', shenPortrait], ['曹遥', caoPortrait], ['叶青', yePortrait], ['阿岚', lanPortrait]]);
+const portraits = new Map([['沈伯', shenPortrait], ['曹遥', caoPortrait], ['叶青', yePortrait], ['阿岚', lanPortrait], ['许渡', xuPortrait]]);
 const sceneEntrances = new Set(['clock', 'greenhouse', 'platform']);
 const missions = { clock: { title: '归期', place: '钟楼', glyph: 'clock-3' }, greenhouse: { title: '春天', place: '温室', glyph: 'flower-2' }, platform: { title: '重逢', place: '旧站台', glyph: 'train-front' } };
 let state = createState(), dialogue = null, near = null, activeModal = null, introVisible = true, world;
@@ -298,7 +299,7 @@ function showEnding() {
   if (!ending) return;
   leaveScene(false);
   $('#ending').hidden = false;
-  $('#ending').innerHTML = `<div class="ending-content"><p class="ending-kicker">THE LAST POST · 余信</p><h2 id="ending-title">${escape(ending.title)}</h2><p class="ending-subtitle">${escape(ending.subtitle)}</p><p class="ending-story">${escape(ending.text)}</p><div class="reflections">${ending.reflections.map(text => `<p>${escape(text)}</p>`).join('')}</div><div class="keepsake-album">${ending.receipts.map(receipt => `<div>${icon(missions[receipt.id].glyph)}<small>${escape(receipt.recipient)}留下</small><strong>${escape(receipt.keepsake)}</strong></div>`).join('')}</div><div class="ending-actions"><button id="revisit-button" class="primary-button"><span>回到最后一夜</span>${icon('rotate-cw')}</button><button id="postcard-button" class="text-button">${icon('download')} 收藏夜航明信片</button><button id="export-button" class="text-button" aria-label="导出投递手记">${icon('feather')} 留下这封信</button></div><p class="ending-footnote">原创故事与程序化美术 · AI 辅助制作<br>谨以此夜，献给所有迟到的告别。</p></div>`;
+  $('#ending').innerHTML = `<div class="ending-content"><p class="ending-kicker">THE LAST POST · 余信</p><h2 id="ending-title">${escape(ending.title)}</h2><p class="ending-subtitle">${escape(ending.subtitle)}</p><p class="ending-story">${escape(ending.text)}</p><div class="reflections">${ending.reflections.map(text => `<p>${escape(text)}</p>`).join('')}</div><div class="keepsake-album">${ending.receipts.map(receipt => `<div>${icon(missions[receipt.id].glyph)}<small>${escape(receipt.recipient)}留下</small><strong>${escape(receipt.keepsake)}</strong></div>`).join('')}</div><div class="ending-actions"><button id="revisit-button" class="primary-button"><span>回到最后一夜</span>${icon('rotate-cw')}</button><button id="postcard-button" class="text-button">${icon('download')} 收藏夜航明信片</button><button id="export-button" class="text-button" aria-label="导出投递手记">${icon('feather')} 留下这封信</button></div><p class="ending-footnote">AI 辅助创作 · ChatGPT 插画 · 程序化港湾<br>谨以此夜，献给所有迟到的告别。</p></div>`;
   $('#revisit-button').addEventListener('click', () => { state.ending = null; $('#ending').hidden = true; save(); update(); toast('灯还亮着，最后的决定仍在等你。'); });
   $('#export-button').addEventListener('click', () => {
     const content = `余信 · ${ending.subtitle}\n${ending.title}\n\n${ending.text}\n\n${ending.reflections.join('\n')}\n\n${ending.receipts.map(receipt => `${receipt.title}\n${receipt.body}\n纪念物：${receipt.keepsake}`).join('\n\n')}\n\n原创叙事游戏《余信 / The Last Post》· AI 辅助制作`;

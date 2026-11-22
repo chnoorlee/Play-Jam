@@ -58,8 +58,11 @@ try {
   await screen('intro-desktop');
   await page.click('#start-button');
   await verifyPortrait('沈伯');
+  await page.locator('#scene-backdrop').evaluate(image => image.decode());
+  await page.locator('.scene-cast').evaluate(image => image.decode());
   await screen('portrait-desktop');
   await select('begin');
+  await verifyPortrait('许渡');
   assert.equal(await page.locator('#scene-stage').getAttribute('data-player-speaking'), 'true');
   await page.locator('.scene-cast').evaluate(image => image.decode());
   assert.match(await page.locator('.scene-cast').getAttribute('src'), /\/xu[.-]/);
@@ -162,6 +165,16 @@ try {
     assert.equal(await page.locator('#scene-stage').evaluate(stage => stage.inert), true);
     await close();
     assert.equal(await page.evaluate(() => document.activeElement.dataset.sceneAction), castId);
+    if (room === 'clock' || room === 'greenhouse') {
+      const backdrop = page.locator('#scene-backdrop');
+      const present = await backdrop.getAttribute('src');
+      await page.keyboard.press('q');
+      await backdrop.evaluate(image => image.decode());
+      assert.notEqual(await backdrop.getAttribute('src'), present);
+      await page.keyboard.press('q');
+      await backdrop.evaluate(image => image.decode());
+      assert.equal(await backdrop.getAttribute('src'), present);
+    }
   };
   await visit('keeper'); await close();
   await checkScene('postoffice', 'keeper', '沈伯');
@@ -235,7 +248,7 @@ try {
   await verifyPortrait('阿岚');
   await select('decision:platform:farewell'); await close();
   check('Both time layers navigable and station letter deliverable');
-  check('All four illustrated character portraits display and decode');
+  check('All five illustrated character portraits display and decode');
   await page.click('#journal-button');
   await page.click('#tab-clues');
   assert((await page.locator('.journal-entry').count()) >= 7);

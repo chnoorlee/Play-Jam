@@ -6,7 +6,9 @@ import lan from './art/cast/lan.webp';
 import xu from './art/cast/xu.webp';
 import postoffice from './art/scenes/postoffice.webp';
 import clock from './art/scenes/clock.webp';
+import clockPresent from './art/scenes/clock-present.webp';
 import greenhouse from './art/scenes/greenhouse.webp';
+import greenhousePresent from './art/scenes/greenhouse-present.webp';
 import station from './art/scenes/station.webp';
 import './scenes.css';
 
@@ -17,27 +19,29 @@ const scenes = {
     cast: shen,
     actions: [
       { id: 'keeper', label: '沈伯', icon: MessageCircle, position: [76, 73] },
-      { id: 'final', label: '柜台的灯', icon: Lamp, position: [30, 74], requiresStart: true },
+      { id: 'final', label: '柜台的灯', icon: Lamp, position: [23, 75], requiresStart: true },
     ],
   },
   clock: {
     name: '钟楼',
     backdrop: clock,
+    presentBackdrop: clockPresent,
     cast: cao,
     actions: [
       { id: 'cao', label: '曹遥', icon: MessageCircle, position: [78, 72] },
-      { id: 'clock', label: '铜环钟机', icon: Clock3, position: [58, 44] },
-      { id: 'letter', label: '曹衡的家书', icon: Mail, position: [44, 68] },
+      { id: 'clock', label: '铜环钟机', icon: Clock3, position: [58, 38] },
+      { id: 'letter', label: '曹衡的家书', icon: Mail, position: [37, 77] },
     ],
   },
   greenhouse: {
     name: '玻璃温室',
     backdrop: greenhouse,
+    presentBackdrop: greenhousePresent,
     cast: ye,
     actions: [
       { id: 'ye', label: '叶青', icon: MessageCircle, position: [79, 73] },
-      { id: 'greenhouse', label: '温室的三面镜', icon: Flower2, position: [49, 54] },
-      { id: 'seed-note', label: '种植手记', icon: NotebookPen, position: [26, 71] },
+      { id: 'greenhouse', label: '温室的三面镜', icon: Flower2, position: [54, 49] },
+      { id: 'seed-note', label: '种植手记', icon: NotebookPen, position: [23, 80] },
     ],
   },
   station: {
@@ -46,9 +50,9 @@ const scenes = {
     cast: lan,
     actions: [
       { id: 'lan', label: '阿岚', icon: MessageCircle, position: [77, 72] },
-      { id: 'platform', label: '转寄信箱', icon: Mail, position: [42, 57] },
-      { id: 'present-stamp', label: '站牌下的邮戳', icon: Stamp, position: [24, 70], phase: 'present' },
-      { id: 'echo-stamp', label: '长椅下的邮戳', icon: Stamp, position: [65, 59], phase: 'echo' },
+      { id: 'platform', label: '转寄信箱', icon: Mail, position: [37, 62] },
+      { id: 'present-stamp', label: '站牌下的邮戳', icon: Stamp, position: [16, 57], phase: 'present' },
+      { id: 'echo-stamp', label: '长椅下的邮戳', icon: Stamp, position: [52, 69], phase: 'echo' },
     ],
   },
 };
@@ -72,6 +76,7 @@ export function createScenes(host, { onAction, onExit }) {
   image.alt = '';
   image.decoding = 'async';
   image.draggable = false;
+  image.src = postoffice;
 
   const light = document.createElement('div');
   light.className = 'scene-light';
@@ -82,6 +87,7 @@ export function createScenes(host, { onAction, onExit }) {
   actor.alt = '';
   actor.decoding = 'async';
   actor.draggable = false;
+  actor.src = shen;
 
   const title = document.createElement('h2');
   title.id = 'scene-title';
@@ -126,6 +132,9 @@ export function createScenes(host, { onAction, onExit }) {
     if (activeState?.phase === phase && activeState?.started === started) return;
     activeState = { phase, started };
     host.dataset.scenePhase = phase;
+    const scene = scenes[current];
+    const backdrop = phase === 'present' && scene.presentBackdrop ? scene.presentBackdrop : scene.backdrop;
+    if (image.getAttribute('src') !== backdrop) image.src = backdrop;
 
     const focused = document.activeElement;
     let currentPhaseAction;
@@ -158,7 +167,6 @@ export function createScenes(host, { onAction, onExit }) {
       host.dataset.sceneId = room;
       host.dataset.sceneCast = scene.actions[0].label;
       title.textContent = scene.name;
-      image.src = scene.backdrop;
       setSpeaker();
       resetParallax();
 
