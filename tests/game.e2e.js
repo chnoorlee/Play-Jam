@@ -231,6 +231,7 @@ try {
   await page.waitForFunction(() => !window.__game.getWorld().phaseTransitioning);
   await screen('echo-desktop');
   await visit('greenhouse');
+  assert.equal(await page.locator('#dial-0 .compass-arrow svg.lucide-arrow-up').count(), 1);
   for (const [index, count] of [[0, 1], [1, 2], [2, 3]]) for (let n = 0; n < count; n++) await page.click(`#dial-${index}`);
   assert.equal(await page.locator('.light-route path.lit').count(), 4);
   await screen('greenhouse-light-route');
@@ -241,6 +242,7 @@ try {
   await page.click('#phase-button');
   await visit('present-stamp'); await select('stamp:present'); await close();
   await visit('platform'); await select('resolve:platform');
+  assert.equal(await page.locator('#dialogue [data-action^="sequence:platform:"]').first().getAttribute('data-action'), 'sequence:platform:south');
   await select('sequence:platform:south');
   assert.equal(await page.locator('.address-slots .filled').count(), 1);
   await select('sequence:platform:reset');

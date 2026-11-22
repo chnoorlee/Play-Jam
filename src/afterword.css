@@ -1,0 +1,70 @@
+.voyage {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  grid-template-rows: auto auto minmax(90px,1fr) auto;
+  background: #193c40;
+  color: #fbf3df;
+  isolation: isolate;
+}
+.voyage[hidden] { display: none; }
+.voyage button { font: inherit; cursor: pointer; }
+.voyage svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.voyage button:focus-visible, .voyage h3:focus-visible { outline: 3px solid #e48d32; outline-offset: -3px; }
+.voyage button:disabled { opacity: .61; cursor: default; }
+.voyage-head, .voyage-route, .voyage-tools, .voyage-choices { display: flex; align-items: center; }
+.voyage-head {
+  padding: max(10px,env(safe-area-inset-top)) max(18px,4%) 8px;
+  justify-content: space-between; gap: 8px; background: #153338;
+}
+.voyage-identity small { color: #e2c893; font-size: 12px; }
+.voyage-identity h2 { font: 600 25px var(--serif); margin: 2px 0 0; }
+.voyage-tools { gap: 4px; }
+.voyage-tools button, .voyage-route button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; border: 0; background: transparent; color: inherit; padding: 4px 10px; font-size: 14px;
+}
+.voyage-icon span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.voyage-route { padding: 0 max(12px,4%); background: #26474b; border-bottom: 1px solid #97aaa2; }
+.voyage-route button { border-bottom: 3px solid transparent; padding: 2px 15px; }
+.voyage-route [aria-current] { border-color: #e9bc71; color: #ffe8b9; }
+.voyage-pan { overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; container-type: size; }
+.voyage-landscape { width: max(100%,177.778cqh); min-width: 640px; height: 100%; position: relative; overflow: clip; }
+.voyage-plate { position: absolute; width: 100%; aspect-ratio: 16 / 9; top: 55%; transform: translateY(-55%); }
+.voyage-landscape img { width: 100%; height: 100%; display: block; }
+.voyage-pin { position: absolute; transform: translate(-50%,-50%); border-radius: 3px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 11px;
+  color: #fff5dd; background: #143236ed; border: 1px solid #f7e9bf; box-shadow: 0 2px 6px #15323580;
+}
+.voyage-pin[aria-pressed=true] { color: #192d2e; background: #ffe4ac; }
+.voyage-paper { background: #fff2db; color: #263c39; border-top: 4px double #ad966c; padding: 14px max(18px,5%) max(14px,env(safe-area-inset-bottom)); max-height: 42dvh; overflow: auto; }
+.voyage-paper h3 { margin: 0 0 6px; font: 600 21px var(--serif); }
+.voyage-paper p { margin: 4px 0; line-height: 1.56; max-width: 90ch; }
+.voyage-paper .voyage-trace { font-family: var(--serif); color: #475b53; }
+.voyage-instrument { display: block; margin: 6px 0 0; font-family: monospace; font-size: 17px; }
+.voyage-paper .voyage-feedback { color: #8b3927; }
+.voyage-choices { flex-wrap: wrap; gap: 4px 8px; margin-top: 8px; }
+.voyage-choices button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; min-height: 44px;
+  color: #244847; background: #fff7e8; border: 1px solid #96866d; border-radius: 3px; font-size: 14px;
+}
+.voyage-choices [aria-pressed=true] { background: #245457; color: white; }
+.voyage-choices .voyage-submit { background: #99432e; border-color: #94412e; color: white; }
+.voyage-choices .voyage-plain { background: transparent; border-color: transparent; }
+.large-text .voyage-paper p { font-size: 19px; }
+@media (max-width: 620px) {
+  .voyage-head { padding-inline: 10px; }
+  .voyage-identity h2 { font-size: 20px; }
+  .voyage-tools button { padding: 4px 6px; font-size: 12px; }
+  .voyage-tools .voyage-icon { min-width: 40px; }
+  .voyage-route { padding-inline: 2px; }
+  .voyage-route button { flex: 1; padding: 4px; font-size: 12px; }
+  .voyage-route svg { width: 14px; }
+  .voyage-paper { max-height: 48dvh; padding: 12px 14px max(12px,env(safe-area-inset-bottom)); }
+  .voyage-paper p { font-size: 14px; }
+}
+@media (max-height: 530px) {
+  .voyage { overflow-y: auto; grid-template-rows: auto auto minmax(220px,1fr) auto; }
+  .voyage-paper { max-height: none; }
+}

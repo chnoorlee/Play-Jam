@@ -8,6 +8,10 @@
 
 For English, choose **English** in the upper-right corner of the title screen. You can switch again in Settings, during dialogue, or on the ending screen without losing your place.
 
+在任一结局选择 **出发 · 南岸邮路**，可依次前往芦苇渡口、盐田和青岬气象台。沿着三张水粉风全景图查潮、配重、发送灯号。已有结局存档可直接进入，途中能随时离开和续玩。
+
+After any ending, choose **Travel the South Bank route** to read the tide at Reed Ferry, weigh a salt shipment, and operate the signal lantern at Cape Observatory. Each stop keeps its own field notes and delivery receipt.
+
 ![《余信》封面原画，海港尽头亮着灯的白沙邮局](src/art/harbor-cover.webp)
 
 ## 运行

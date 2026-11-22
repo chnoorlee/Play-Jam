@@ -36,6 +36,8 @@ jobs:
         run: node tests/production.e2e.js
       - name: Check Chinese and English gameplay
         run: node tests/language.e2e.js
+      - name: Play all three South Bank maps
+        run: node tests/afterword.e2e.js
       - name: Include licenses
         run: cp LICENSE THIRD_PARTY_NOTICES.md dist/
       - name: Upload website

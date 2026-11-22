@@ -202,7 +202,7 @@
   }
   #scene-stage[data-player-speaking="true"] .scene-cast { right: 2%; }
   .scene-actions {
-    inset: auto max(var(--margin), env(safe-area-inset-right)) max(123px, calc(env(safe-area-inset-bottom) + 104px)) max(var(--margin), env(safe-area-inset-left));
+    inset: auto max(var(--margin), env(safe-area-inset-right)) calc(var(--room-footer-height, 100px) + max(14px, env(safe-area-inset-bottom)) + 10px) max(var(--margin), env(safe-area-inset-left));
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -212,8 +212,11 @@
 }
 
 @media (max-width: 740px), (max-height: 480px) {
-  #app:has(#scene-stage:not([hidden])) .delivery-status :is(.eyebrow, #objective) { display: none; }
-  #app:has(#scene-stage:not([hidden])) .delivery-status .stamps { margin-top: 0; }
+  #app:has(#scene-stage:not([hidden])) .delivery-status { flex: 1; max-width: 38rem; padding: 6px 9px; }
+  #app:has(#scene-stage:not([hidden])) .delivery-status .eyebrow { display: none; }
+  #app:has(#scene-stage:not([hidden])) #objective { margin: 0; font-size: 14px; }
+  .large-text #app:has(#scene-stage:not([hidden])) #objective { font-size: 17px; }
+  #app:has(#scene-stage:not([hidden])) .stamps { margin-top: 4px; }
 }
 
 @media (max-height: 480px) {
@@ -221,12 +224,15 @@
   .scene-exit { top: max(62px, calc(env(safe-area-inset-top) + 54px)); }
 }
 
-@media (max-width: 740px) and (max-height: 480px) {
-  .scene-actions { bottom: max(86px, calc(env(safe-area-inset-bottom) + 74px)); }
-}
-
-@media (max-width: 360px) and (max-height: 480px) {
-  .scene-actions { bottom: max(114px, calc(env(safe-area-inset-bottom) + 102px)); }
+@media (min-width: 741px) and (max-height: 480px) {
+  .scene-actions {
+    inset: auto max(var(--margin), env(safe-area-inset-right)) calc(var(--room-footer-height, 70px) + max(8px, env(safe-area-inset-bottom)) + 10px) max(var(--margin), env(safe-area-inset-left));
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  .scene-action { position: static; transform: none; }
+  .scene-action:not(.scene-action--cast)::before { content: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

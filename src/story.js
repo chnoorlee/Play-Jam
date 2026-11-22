@@ -1,3 +1,5 @@
+import { createVoyage, normalizeVoyage } from './afterword-state.js';
+
 export const SAVE_VERSION = 1;
 
 const MISSIONS = ['clock', 'greenhouse', 'platform'];
@@ -10,9 +12,14 @@ const DECISIONS = {
 };
 const ENDINGS = ['release', 'preserve', 'carry'];
 const PLATFORM_SEQUENCE = ['north', 'closed', 'south', 'reunion'];
+const PLATFORM_TRAY = ['south', 'reunion', 'closed', 'north'];
 const PLATFORM_FRAGMENTS = {
   north: '北站', closed: '停运', south: '南岸', reunion: '重逢',
 };
+const DELIVERY_NOTES = [
+  { title: '许渡手记 · 柜台上的画', body: '我把第一张回执塞进夹层，摸到一张折了四折的纸。是我小时候画的邮局柜台。左下的抽屉画得太大，母亲拿铅笔给它添了一只把手。' },
+  { title: '许渡手记 · 轮到我送', body: '第二张回执把画顶了出来。背面有一行歪字：「妈，下回最后一封让我送。」我连那个「送」字都写反了。她竟然一直带着。' },
+];
 const CLOSE = { label: '收起', action: 'close' };
 
 export function createState() {
@@ -30,6 +37,7 @@ export function createState() {
     activeMission: null,
     deliveryOrder: [],
     ending: null,
+    voyage: createVoyage(),
   };
 }
 
@@ -71,6 +79,8 @@ export function normalizeSave(raw) {
   for (const id of MISSIONS) if (state.solved[id] && !state.deliveryOrder.includes(id)) state.deliveryOrder.push(id);
   if (MISSIONS.includes(raw.activeMission) && !state.solved[raw.activeMission]) state.activeMission = raw.activeMission;
   if (complete(state) && ENDINGS.includes(raw.ending)) state.ending = raw.ending;
+  if (complete(state)) state.voyage = normalizeVoyage(raw.voyage);
+  if (!state.ending) state.voyage.active = false;
   return state;
 }
 
@@ -165,7 +175,7 @@ export function getPuzzle(state, id) {
       ready: greenhouseReady(state),
       phase: 'echo',
       ...greenhouseRoute(state),
-      clue: state.clues.includes('greenhouse') ? '「晨光朝东，午光朝南，暮光朝西。让它们各自回家。」' : '花盆旁的手记，还没有被读过。',
+      clue: state.clues.includes('greenhouse') ? '「沿着旧窗框找下一面镜子。最后，把光送回我手边的花盆。」' : '花盆旁的手记，还没有被读过。',
     };
   }
   if (id === 'platform') {
@@ -233,19 +243,25 @@ export function interact(state, id) {
   }
   if (!state.started) return dialogue('旧邮包', '还没有开始的投递', '守灯人站在邮局门前。他好像一直在等你。');
   if (id === 'cao') {
-    if (state.solved.clock) return dialogue('曹遥', '下一次开场', '我把演出的曲谱从钟匣里拿出来了。明天要是有人肯听，我想从第一句开始唱。');
+    if (state.solved.clock) return dialogue('曹遥', '下一次开场', state.decisions.clock === 'truth'
+      ? '你写的那三个字，墨还没干。劳你把钟匣撑一会儿，我想等它干了再把谱放回去。'
+      : '这行空着挺好。我把明天想问他的话写在谱背面了。你听听，第一句我还唱得上去吗？');
     return dialogue('曹遥', '还没拨准的钟', state.phase === 'echo'
       ? '我再等一声钟响就开唱。台下那把椅子，我答应过要给他留着。'
       : '钟摆停了那晚，我把他留的纸压在铜盒下。你帮我把那封信读出来吧，我试过很多次了。');
   }
   if (id === 'ye') {
-    if (state.solved.greenhouse) return dialogue('叶青', '走之前浇一次水', '我给空花盆都浇了水。林穗要是看见，大概会笑我。可我还记得哪一盆昨天忘了浇。');
+    if (state.solved.greenhouse) return dialogue('叶青', '走之前浇一次水', state.decisions.greenhouse === 'share'
+      ? '苗圃的袋子这么大，一颗种子丢进去，上哪儿找？我先用她那张标签包起来。来，帮我按住这个角。'
+      : '我量过窗台，刚够摆下蓝花盆。你摸这边，缺口有点割手。我得记着把它转向墙。');
     return dialogue('叶青', '她记太阳，我记浇水', state.phase === 'echo'
       ? '林穗说镜子转错了也别怕。看光在哪里断掉，再从那一面往下接。'
       : '这本手记上全是林穗的字。你带它去看看玻璃还没碎的时候，或许还能认出最后一颗种子。');
   }
   if (id === 'lan') {
-    if (state.solved.platform) return dialogue('阿岚', '看一眼南岸', '我站在这里太久，忘了栈桥也能通向别的地方。等雨小一点，我想去看看南岸的新站。');
+    if (state.solved.platform) return dialogue('阿岚', '看一眼南岸', state.decisions.platform === 'wait'
+      ? '借你的铅笔用用。我把名字描重一点，新站台没装玻璃，风一吹纸就卷起来。'
+      : '我给小川写了封信，说桥头卖馄饨的婆婆还记得他不吃葱。写到落款才发觉，整张纸我都没提车次。');
     return dialogue('阿岚', '有张票还没剪', state.phase === 'echo'
       ? '小川走前在这张长椅上刻了个记号。你看看椅子下面，还留着他从旧邮局带来的半枚戳。'
       : '到站时间已经划掉了。停运的通知在站牌下，另一半消息还在长椅留着的那个时候。');
@@ -254,7 +270,7 @@ export function interact(state, id) {
     return dialogue('曹衡写给女儿曹遥', '没有寄出的归期', '小遥：\n\n你说钟楼的钟不准，因为我总在它响过以后才回来。那天的演出，我也没赶上。不是你的歌不重要，是北闸卡住了，我不敢松手。\n\n我想好了一句笨话：三声汽笛离港，一盏灯熄灭，两个人归家。等我回去，我们就照这个刻度，把钟拨准。\n\n纸的最后一行被水浸掉了。只剩「对……」。', [{ label: '把家书夹进手记', action: 'read:clock' }]);
   }
   if (id === 'seed-note') {
-    return dialogue('林穗的种植手记', '春天的方向', '叶青：\n\n晨光朝东，午光朝南，暮光朝西。让它们各自回家，温室里的最后一颗种子就会醒。\n\n你说撤离的船太小，带不走整座花园。我知道。可这颗种子既不认识街名，也不认识我们的窗台。它只认得春天。\n\n如果我没有回来，请你替我决定，它的第一片叶子要在哪里长出来。', [{ label: '收好种植手记', action: 'read:greenhouse' }]);
+    return dialogue('林穗的种植手记', '春天的方向', '叶青：\n\n还记得装镜子的那天吗？你踩着梯子，我在底下指路。晨光镜和午光镜挨着同一排窗，暮光镜装在午光镜楼下。最后是我捧着花盆，站在暮光镜左手边。\n\n你说撤离的船太小，带不走整座花园。我知道。可这颗种子既不认识街名，也不认识我们的窗台。它只认得春天。\n\n如果我没有回来，请你替我决定，它的第一片叶子要在哪里长出来。', [{ label: '收好种植手记', action: 'read:greenhouse' }]);
   }
   if (id === 'clock') {
     if (state.solved.clock) return receiptDialogue(state, 'clock');
@@ -279,7 +295,7 @@ export function interact(state, id) {
   }
   if (id === 'final') {
     if (!complete(state)) return dialogue('邮局的灯', '灯下还有空位', `三封信里，还有 ${MISSIONS.filter(mission => !state.solved[mission]).length} 封没有抵达。沈伯把灯芯拨亮了一点。`);
-    return dialogue('沈伯', '最后一封信，写给你', '柜台下面，是母亲留给你的信。\n\n「小渡，不必替所有人保管过去。邮差的责任，是让人有机会说完；说完之后，路归他们自己。」\n\n天开始亮了。灯油只够最后一次决定。', [
+    return dialogue('沈伯', '最后一封信，写给你', '你照着旧画拉开柜台左下的抽屉。里面躺着母亲的信。收件人是你。\n\n「小渡，不必替所有人保管过去。邮差的责任，是让人有机会说完；说完之后，路归他们自己。」\n\n天开始亮了。灯油只够最后一次决定。', [
       { label: '放流 · 让信随潮水远行', action: 'ending:release' },
       { label: '守灯 · 为这座邮局留下', action: 'ending:preserve' },
       { label: '携信 · 带着旧邮包离开', action: 'ending:carry' },
@@ -314,10 +330,10 @@ function platformAssembly(state) {
   const order = state.platformOrder;
   const correct = order.every((value, index) => value === PLATFORM_SEQUENCE[index]);
   const full = order.length === PLATFORM_SEQUENCE.length;
-  const choices = PLATFORM_SEQUENCE.filter(value => !order.includes(value)).map(value => ({ label: PLATFORM_FRAGMENTS[value], action: `sequence:platform:${value}` }));
+  const choices = PLATFORM_TRAY.filter(value => !order.includes(value)).map(value => ({ label: PLATFORM_FRAGMENTS[value], action: `sequence:platform:${value}` }));
   if (order.length) choices.push({ label: '重新摆好四块邮戳', action: 'sequence:platform:reset' });
   choices.push(CLOSE);
-  return dialogue('旧站台的转寄台', full ? '地址读反了' : '把两次告别排成一句话', `${order.length ? `已经摆下：${order.map(value => PLATFORM_FRAGMENTS[value]).join(' → ')}\n\n` : '两半邮戳各有两块字：北站、停运；南岸、重逢。\n\n'}${full ? '旧地址和新地址混在了一起。信箱上的小铜片没有落下。把四块字重新摆好，这封信就不会再寄回过去。' : correct ? '转寄单从旧址读起：先是哪一站，然后是它无法收信的原因；再写新址，最后写相见的约定。' : '这一行的次序和转寄规则对不上。旧站应当先说明去向，新的约定才能接在后面。'}`, choices, { assembly: 'platform' });
+  return dialogue('旧站台的转寄台', full ? '地址读反了' : '把两次告别排成一句话', `${order.length ? `已经摆下：${order.map(value => PLATFORM_FRAGMENTS[value]).join(' → ')}\n\n` : '你把半枚铜戳轻轻一磕。四块松动的铅字落在转寄单旁。\n\n'}${full ? '旧地址和新地址混在了一起。信箱上的小铜片没有落下。把四块字重新摆好，这封信就不会再寄回过去。' : correct ? '转寄单从旧址读起：先是哪一站，然后是它无法收信的原因；再写新址，最后写相见的约定。' : '这一行的次序和转寄规则对不上。旧站应当先说明去向，新的约定才能接在后面。'}`, choices, { assembly: 'platform' });
 }
 
 export function choose(state, action) {
@@ -332,7 +348,7 @@ export function choose(state, action) {
     const id = action.slice(5);
     if (!state.clues.includes(id)) state.clues.push(id);
     state.activeMission = state.solved[id] ? null : id;
-    return dialogue('投递手记', id === 'clock' ? '归期已经记下' : '春天的方向已经记下', id === 'clock' ? '离港 III，熄灯 I，归家 II。钟楼的三个铜环，终于有了等待的刻度。铜轮是联动的，要先照顾上游，再调下游。' : '晨光向东，午光向南，暮光向西。回声里的镜子，还记得玻璃完整的样子。光要一段一段接过来。');
+    return dialogue('投递手记', id === 'clock' ? '归期已经记下' : '春天的方向已经记下', id === 'clock' ? '离港 III，熄灯 I，归家 II。钟楼的三个铜环，终于有了等待的刻度。铜轮是联动的，要先照顾上游，再调下游。' : '手记里记着镜子当年挂在哪里。到回声里看看，把每面镜子转向光的下一站。');
   }
   if (action === 'stamp:present' || action === 'stamp:echo') {
     const phase = action.slice(6);
@@ -376,7 +392,10 @@ export function choose(state, action) {
     state.solved[id] = true;
     state.activeMission = null;
     if (!state.deliveryOrder.includes(id)) state.deliveryOrder.push(id);
-    return interact(state, id);
+    const reply = receiptDialogue(state, id);
+    const note = DELIVERY_NOTES[state.deliveryOrder.length - 1];
+    if (note) reply.text += `\n\n${note.title}\n${note.body}`;
+    return reply;
   }
   if (typeof action === 'string' && action.startsWith('ending:')) {
     const ending = action.slice(7);
@@ -387,11 +406,41 @@ export function choose(state, action) {
   return null;
 }
 
+const findingHints = {
+  clock: [
+    '曹遥提过，有一张纸压在钟楼的铜盒底下。',
+    '进入钟楼，找曹衡留给女儿的家书。',
+    '打开「曹衡的家书」，读到末尾，选「把家书夹进手记」。',
+  ],
+  greenhouse: [
+    '叶青一直替林穗保管着一本薄薄的手记。',
+    '进入玻璃温室，找花盆旁的种植手记。',
+    '打开「种植手记」，读完后选「收好种植手记」。',
+  ],
+  present: [
+    '站牌下有件东西，旧站台的旅客一直没留意。',
+    '去旧站台的「此刻」，看看站牌下的铜印。',
+    '在「此刻」打开「站牌下的邮戳」，再选择收好半枚邮戳。',
+  ],
+  echo: [
+    '阿岚提过，长椅还记得小川离开的那个时候。',
+    '去旧站台的「回声」，看看长椅下面。',
+    '在「回声」打开「长椅下的邮戳」，再选择收好半枚邮戳。',
+  ],
+};
+
 export function getHint(state, id, level = 1) {
   if (!MISSIONS.includes(id)) return '';
   if (!state.started) return '沈伯还在邮局门前。先接过那个旧邮包。';
   if (state.solved[id]) return '这封信已经抵达。它留下的回执，还在你的投递手记里。';
   const tier = Number.isFinite(level) ? Math.min(3, Math.max(1, Math.trunc(level))) : 1;
+  if (id === 'platform' && (!state.stamps.present || !state.stamps.echo)) {
+    const missing = state.stamps[state.phase] ? (state.phase === 'present' ? 'echo' : 'present') : state.phase;
+    return findingHints[missing][tier - 1];
+  }
+  if (id !== 'platform' && !state.clues.includes(id)) return findingHints[id][tier - 1];
+  if (id === 'clock' && state.phase !== 'present') return '真正的铜轮在此刻。';
+  if (id === 'greenhouse' && state.phase !== 'echo') return '完整的光路在回声里。';
   if (id === 'clock') {
     if (tier === 1) return '家书写的是三个最终刻度，不是三个按钮各自转动的次数。留意相邻的铜轮会不会跟着动。';
     if (tier === 2) return '先调离港轮，再调熄灯轮，最后调归家轮。这样后面的调整不会再改变已经对好的上游刻度。目标来自家书：III、I、II。';
@@ -399,18 +448,18 @@ export function getHint(state, id, level = 1) {
     turns[0] = (DIAL_TARGET[0] - state.dials[0] + 4) % 4;
     turns[1] = (DIAL_TARGET[1] - state.dials[1] - turns[0] + 8) % 4;
     turns[2] = (DIAL_TARGET[2] - state.dials[2] - turns[1] + 8) % 4;
-    return `${!state.clues.includes('clock') ? '先读完钟楼脚下的家书。' : ''}${state.phase !== 'present' ? '真正的铜轮在此刻。' : ''}从当前刻度开始，依次转动：离港 ${turns[0]} 次，熄灯 ${turns[1]} 次，归家 ${turns[2]} 次。然后让钟重新走动。`;
+    return `从当前刻度开始，依次转动：离港 ${turns[0]} 次，熄灯 ${turns[1]} 次，归家 ${turns[2]} 次。然后让钟重新走动。`;
   }
   if (id === 'greenhouse') {
     if (tier === 1) return '不要先照顾最靠近种子的镜子。找到光第一次熄灭的位置，先把那一段接通。';
-    if (tier === 2) return '回声里的光按晨光、午光、暮光的顺序传递。种植手记为它们分别留下了东、南、西三个方向。';
+    if (tier === 2) return '图上方是北。午光镜在晨光镜的右边，第一面应当向东。再找找第三面镜子和花盆分别在哪一边。';
     const route = greenhouseRoute(state);
-    if (route.matched === 3) return `${state.phase !== 'echo' ? '完整的光路在回声里。' : ''}三面镜子的方向已经对齐。读过种植手记以后，把光送进花盆。`;
-    return `${!state.clues.includes('greenhouse') ? '先收好温室旁的种植手记。' : ''}${state.phase !== 'echo' ? '完整的光路在回声里。' : ''}从当前方向开始，依次转动晨光 ${(MIRROR_TARGET[0] - state.mirrors[0] + 4) % 4} 次、午光 ${(MIRROR_TARGET[1] - state.mirrors[1] + 4) % 4} 次、暮光 ${(MIRROR_TARGET[2] - state.mirrors[2] + 4) % 4} 次。`;
+    if (route.matched === 3) return '三面镜子的方向已经对齐。读过种植手记以后，把光送进花盆。';
+    return `从当前方向开始，依次转动晨光 ${(MIRROR_TARGET[0] - state.mirrors[0] + 4) % 4} 次、午光 ${(MIRROR_TARGET[1] - state.mirrors[1] + 4) % 4} 次、暮光 ${(MIRROR_TARGET[2] - state.mirrors[2] + 4) % 4} 次。`;
   }
   if (tier === 1) return '同一座站台的两面时间，各留着半枚邮戳。完整的地址应当告诉人先离开哪里，再去哪里。';
   if (tier === 2) return '此刻的站牌留着旧站和停运的消息，回声的长椅留着新地址与约定。先写旧址及原因，再写新址及约定。';
-  return `${!state.stamps.present ? '到此刻的站牌下收好半枚邮戳。' : ''}${!state.stamps.echo ? '到回声的长椅边收好另一半。' : ''}${state.platformOrder.length && !state.platformOrder.every((value, index) => value === PLATFORM_SEQUENCE[index]) ? '先重新摆好四块字。' : ''}完整顺序是：北站 → 停运 → 南岸 → 重逢。`;
+  return `${state.platformOrder.length && !state.platformOrder.every((value, index) => value === PLATFORM_SEQUENCE[index]) ? '先重新摆好四块字。' : ''}完整顺序是：北站 → 停运 → 南岸 → 重逢。`;
 }
 
 export function getReceipts(state) {
@@ -492,8 +541,9 @@ function endingDialogue(state) {
 export function getJournal(state) {
   const entries = [{ title: '今夜的投递', body: getObjective(state) }];
   if (state.started) entries.push({ title: '母亲的旧邮包', body: '三个地址：钟楼、温室、旧站台。信的投递顺序，并不重要。此刻留着事物的形状，回声留着它们没说完的话。' });
+  entries.push(...DELIVERY_NOTES.slice(0, state.deliveryOrder.length).map(note => ({ ...note })));
   if (state.clues.includes('clock')) entries.push({ title: '家书 · 归期的刻度', body: '三声汽笛离港，一盏灯熄灭，两个人归家。离港 III / 熄灯 I / 归家 II。真正的钟在此刻。铜轮从上游带动相邻下游：离港带熄灯，熄灯带归家，归家单独转动。' });
-  if (state.clues.includes('greenhouse')) entries.push({ title: '种植手记 · 春天的方向', body: '晨光朝东，午光朝南，暮光朝西。完整的镜子仍留在回声里。' });
+  if (state.clues.includes('greenhouse')) entries.push({ title: '种植手记 · 春天的方向', body: '两面镜子挨着同一排窗，第三面在楼下，花盆在它左手边。看看回声里的光路图，让每面镜子朝向下一站。' });
   if (state.stamps.present || state.stamps.echo) entries.push({ title: '站台 · 两半邮戳', body: `此刻：${state.stamps.present ? '北站停运，已收好' : '尚未寻到'}。回声：${state.stamps.echo ? '南岸重逢，已收好' : '尚未寻到'}。转寄规则：旧站 → 不能收信的原因 → 新址 → 相见的约定。` });
   for (const receipt of getReceipts(state)) entries.push({ title: `已投递 · ${receipt.recipient} · ${receipt.title}`, body: `${receipt.body}\n\n纪念物：${receipt.keepsake}` });
   const ending = getEnding(state);

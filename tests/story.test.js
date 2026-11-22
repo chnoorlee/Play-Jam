@@ -321,6 +321,57 @@ test('platform reconstruction rejects wrong order, ignores duplicates and permit
   assert.equal(state.solved.platform, true);
 });
 
+test('selecting the first stamp piece at every step cannot solve the forwarding slip', () => {
+  const state = begin();
+  choose(state, 'stamp:present');
+  setPhase(state, 'echo');
+  choose(state, 'stamp:echo');
+  let desk = choose(state, 'resolve:platform');
+  const tray = desk.choices.map(choice => choice.action);
+  for (let step = 0; step < 4; step++) desk = choose(state, desk.choices[0].action);
+  assert.equal(desk.title, '地址读反了');
+  assert.equal(getPuzzle(state, 'platform').ready, false);
+  assert.deepEqual(choose(state, 'sequence:platform:reset').choices.map(choice => choice.action), tray);
+});
+
+test('the mirror solution agrees with the light diagram and is revealed in stages', () => {
+  const state = begin();
+  setPhase(state, 'echo');
+  choose(state, 'read:greenhouse');
+  const puzzle = getPuzzle(state, 'greenhouse');
+  const mirrors = puzzle.nodes.slice(1, -1);
+  const directions = mirrors.map((from, index) => {
+    const to = puzzle.nodes[index + 2];
+    if (to.y !== from.y) return to.y > from.y ? '南' : '北';
+    return to.x > from.x ? '东' : '西';
+  });
+  assert.deepEqual(puzzle.target.map(value => puzzle.options[value]), directions);
+  assert.doesNotMatch(puzzle.clue + getHint(state, 'greenhouse', 1), /朝东|向东|朝南|向南|朝西|向西/);
+  assert.match(getHint(state, 'greenhouse', 2), /第一面应当向东/);
+  assert.match(getHint(state, 'greenhouse', 3), /晨光 1 次、午光 2 次、暮光 3 次/);
+});
+
+test('both memories surface once at delivery and stay in the journal in every mission order', () => {
+  const ids = ['clock', 'greenhouse', 'platform'];
+  const prepare = { clock: prepareClock, greenhouse: prepareGreenhouse, platform: preparePlatform };
+  const decisions = { clock: 'truth', greenhouse: 'plant', platform: 'wait' };
+  const titles = ['许渡手记 · 柜台上的画', '许渡手记 · 轮到我送'];
+  for (const first of ids) for (const second of ids.filter(id => id !== first)) {
+    const order = [first, second, ids.find(id => id !== first && id !== second)];
+    const state = begin();
+    for (const [index, id] of order.entries()) {
+      prepare[id](state);
+      const reply = choose(state, `decision:${id}:${decisions[id]}`);
+      if (index < 2) assert.ok(reply.text.includes(titles[index]));
+      else assert.doesNotMatch(reply.text, /许渡手记/);
+      assert.doesNotMatch(interact(state, id).text, /许渡手记/);
+      const journal = getJournal(normalizeSave(structuredClone(state)));
+      assert.deepEqual(journal.filter(entry => entry.title.startsWith('许渡手记')).map(entry => entry.title), titles.slice(0, index + 1));
+    }
+    assert.match(interact(state, 'final').text, /旧画/);
+  }
+});
+
 test('all hint tiers are readonly, progressively specific and invalid ids are harmless', () => {
   const state = begin();
   const before = structuredClone(state);

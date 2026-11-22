@@ -157,7 +157,7 @@ const strings = {
   "收藏夜航明信片": "Save a postcard",
   "导出投递手记": "Export your delivery journal",
   "留下这封信": "Keep this letter",
-  "AI 辅助创作 · ChatGPT 插画 · 程序化港湾": "AI-assisted creation · ChatGPT illustrations · Procedural harbor",
+  "AI 辅助创作 · ChatGPT 原画 · 程序绘制港湾与南岸": "AI-assisted creation · Original ChatGPT illustrations · Harbor and South Bank drawn in code",
   "谨以此夜，献给所有迟到的告别。": "For every goodbye that came too late.",
   "原创叙事游戏《余信 / The Last Post》· AI 辅助制作": "The Last Post · An original narrative game made with AI assistance",
   "纪念物": "Keepsake",

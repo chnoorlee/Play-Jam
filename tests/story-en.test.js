@@ -56,7 +56,7 @@ test('every combination of player decisions keeps its English replies and ending
       for (const platform of ['wait', 'farewell']) {
         for (const ending of ['release', 'preserve', 'carry']) {
           const state = normalizeSave({ ...createState(), solved: { clock: true, greenhouse: true, platform: true }, decisions: { clock, greenhouse, platform } });
-          for (const id of ['clock', 'greenhouse', 'platform']) assertEnglish(interact(state, id));
+          for (const id of ['clock', 'greenhouse', 'platform', 'cao', 'ye', 'lan', 'final']) assertEnglish(interact(state, id));
           assertEnglish(choose(state, 'ending:' + ending));
           assertEnglish(getJournal(state));
         }
@@ -65,4 +65,62 @@ test('every combination of player decisions keeps its English replies and ending
   }
   assert.equal(translateStory('untranslated-id'), 'untranslated-id');
   assert.equal(translateStory('尚无对应的文本。'), '尚无对应的文本。');
+});
+
+test('each recipient has two distinct localized conversations after delivery', () => {
+  for (const [mission, npc, options] of [
+    ['clock', 'cao', ['truth', 'forgive']],
+    ['greenhouse', 'ye', ['plant', 'share']],
+    ['platform', 'lan', ['wait', 'farewell']],
+  ]) {
+    const conversations = options.map(decision => {
+      const state = normalizeSave({ ...createState(), solved: { [mission]: true }, decisions: { [mission]: decision } });
+      const conversation = interact(state, npc);
+      assertEnglish(conversation);
+      return translateStory(conversation.text);
+    });
+    assert.notEqual(conversations[0], conversations[1]);
+  }
+});
+
+test('English localizes both mailbag discoveries in the delivered receipt and journal', () => {
+  const state = createState();
+  choose(state, 'begin');
+  for (const [id, field, action] of [
+    ['clock', 'dials', 'truth'], ['greenhouse', 'mirrors', 'plant'],
+  ]) {
+    const puzzle = getPuzzle(state, id);
+    state.phase = puzzle.phase;
+    state[field] = [...puzzle.target];
+    assertEnglish(choose(state, 'read:' + id));
+    assertEnglish(interact(state, id === 'clock' ? 'letter' : 'seed-note'));
+    assertEnglish(getHint(state, id, 2));
+    const receipt = choose(state, 'decision:' + id + ':' + action);
+    assertEnglish(receipt);
+    assert.match(translateStory(receipt.text), /Xu Du's Journal/);
+    assertEnglish(getJournal(state));
+  }
+});
+test('discovery hints in both languages reveal only the next available field step', () => {
+  const state = createState();
+  choose(state, 'begin');
+  for (const id of ['clock', 'greenhouse', 'platform']) {
+    for (const phase of ['present', 'echo']) {
+      state.phase = phase;
+      for (const tier of [1, 2, 3]) {
+        const hint = getHint(state, id, tier);
+        assert.doesNotMatch(hint, /III|应当向东|次、|北站|南岸/);
+        assertEnglish(hint);
+      }
+    }
+  }
+  choose(state, 'read:clock');
+  assert.match(getHint(state, 'clock', 3), /此刻/);
+  state.phase = 'present'; choose(state, 'read:greenhouse');
+  assert.match(getHint(state, 'greenhouse', 2), /回声/);
+  choose(state, 'stamp:present');
+  for (const tier of [1, 2, 3]) {
+    assert.match(getHint(state, 'platform', tier), /长椅/);
+    assertEnglish(getHint(state, 'platform', tier));
+  }
 });
