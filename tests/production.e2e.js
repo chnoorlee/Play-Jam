@@ -31,6 +31,13 @@ try {
   await page.waitForFunction(() => !!document.querySelector('canvas'));
   assert.equal(await page.evaluate(() => typeof window.__game), 'undefined');
   await page.click('#start-button');
+  assert.equal(await page.locator('#scene-stage').getAttribute('data-scene-id'), 'postoffice');
+  for (const selector of ['#scene-backdrop', '.scene-cast']) {
+    await page.locator(selector).evaluate(image => image.decode());
+    const resource = await page.request.get(await page.locator(selector).evaluate(image => image.currentSrc));
+    assert.equal(resource.status(), 200);
+    assert.equal(resource.headers()['content-type'], 'image/webp');
+  }
   const portrait = page.locator('.speaker-portrait');
   await portrait.evaluate(image => image.decode());
   const imageURL = await portrait.evaluate(image => image.currentSrc);
@@ -39,18 +46,25 @@ try {
   assert.equal(imageResponse.headers()['content-type'], 'image/webp');
   await page.click('[data-action="begin"]');
   await page.click('[data-action="close"]');
+  assert(!(await page.locator('#scene-stage').isVisible()));
   await page.click('#phase-button');
   assert.equal(await page.locator('#phase-label').textContent(), '回声');
   const png = PNG.sync.read(await page.locator('canvas').screenshot());
   const colors = new Set();
   for (let i = 0; i < png.data.length; i += 172) colors.add(`${png.data[i] >> 4},${png.data[i + 1] >> 4},${png.data[i + 2] >> 4}`);
   assert(colors.size > 70);
+  await page.locator('.world-label[data-id="clock"]').click();
+  await page.locator('#scene-stage[data-scene-id="clock"]').waitFor({ timeout: 25000 });
+  await page.getByRole('button', { name: '与曹遥交谈' }).click();
+  assert.equal(await page.locator('#dialogue .speaker').textContent(), '曹遥');
+  await page.locator('.dialogue-close').click();
+  await page.click('#scene-exit');
   await page.click('#journal-button');
   assert(await page.locator('#journal').isVisible());
   assert(requests.every(request => new URL(request).hostname === '127.0.0.1'));
   assert.deepEqual(errors, []);
-  Object.assign(report, { passed: true, noDevelopmentBridge: true, localResourcesOnly: true, canvasColors: colors.size });
-  console.log('PASS production build loads, renders, starts, switches time, opens journal, and requests only local resources');
+  Object.assign(report, { passed: true, noDevelopmentBridge: true, localResourcesOnly: true, canvasColors: colors.size, playableRooms: ['postoffice', 'clock'] });
+  console.log('PASS production build loads illustrated rooms, switches time, supports cast dialogue and return navigation, and requests only local resources');
 } catch (error) {
   report.failure = error.stack;
   process.exitCode = 1;

@@ -232,6 +232,24 @@ export function interact(state, id) {
     return dialogue('沈伯', '灯还亮着', complete(state) ? '信已经有人接住了。现在，该轮到你回答：一个地方消失以后，它的记忆应当留下，还是跟活着的人一起走？' : '钟楼、温室、旧站台，各有一封信。顺序并不重要，肯停下来读完，就已经比潮水慢了一点。\n\n记不清的字，我替你誊在了邮包里的手记上。', [CLOSE]);
   }
   if (!state.started) return dialogue('旧邮包', '还没有开始的投递', '守灯人站在邮局门前。他好像一直在等你。');
+  if (id === 'cao') {
+    if (state.solved.clock) return dialogue('曹遥', '下一次开场', '我把演出的曲谱从钟匣里拿出来了。明天要是有人肯听，我想从第一句开始唱。');
+    return dialogue('曹遥', '还没拨准的钟', state.phase === 'echo'
+      ? '我再等一声钟响就开唱。台下那把椅子，我答应过要给他留着。'
+      : '钟摆停了那晚，我把他留的纸压在铜盒下。你帮我把那封信读出来吧，我试过很多次了。');
+  }
+  if (id === 'ye') {
+    if (state.solved.greenhouse) return dialogue('叶青', '走之前浇一次水', '我给空花盆都浇了水。林穗要是看见，大概会笑我。可我还记得哪一盆昨天忘了浇。');
+    return dialogue('叶青', '她记太阳，我记浇水', state.phase === 'echo'
+      ? '林穗说镜子转错了也别怕。看光在哪里断掉，再从那一面往下接。'
+      : '这本手记上全是林穗的字。你带它去看看玻璃还没碎的时候，或许还能认出最后一颗种子。');
+  }
+  if (id === 'lan') {
+    if (state.solved.platform) return dialogue('阿岚', '看一眼南岸', '我站在这里太久，忘了栈桥也能通向别的地方。等雨小一点，我想去看看南岸的新站。');
+    return dialogue('阿岚', '有张票还没剪', state.phase === 'echo'
+      ? '小川走前在这张长椅上刻了个记号。你看看椅子下面，还留着他从旧邮局带来的半枚戳。'
+      : '到站时间已经划掉了。停运的通知在站牌下，另一半消息还在长椅留着的那个时候。');
+  }
   if (id === 'letter') {
     return dialogue('曹衡写给女儿曹遥', '没有寄出的归期', '小遥：\n\n你说钟楼的钟不准，因为我总在它响过以后才回来。那天的演出，我也没赶上。不是你的歌不重要，是北闸卡住了，我不敢松手。\n\n我想好了一句笨话：三声汽笛离港，一盏灯熄灭，两个人归家。等我回去，我们就照这个刻度，把钟拨准。\n\n纸的最后一行被水浸掉了。只剩「对……」。', [{ label: '把家书夹进手记', action: 'read:clock' }]);
   }
@@ -307,7 +325,7 @@ export function choose(state, action) {
   if (state.ending) return endingDialogue(state);
   if (action === 'begin') {
     state.started = true;
-    return dialogue('许渡', '邮包还认得你的肩膀', '旧邮包里有一张母亲画的路线：钟楼、温室、旧站台。三个地址，三句没说完的话。\n\n你提起灯。潮水没有催你。', [{ label: '走进这一个夜晚', action: 'close' }]);
+    return dialogue('许渡', '邮包还认得你的肩膀', '旧邮包里有一张母亲画的路线：钟楼、温室、旧站台。三个地址，三句没说完的话。\n\n你提起灯。潮水没有催你。', [{ label: '走进这一个夜晚', action: 'close' }], { returnToHarbor: true });
   }
   if (!state.started) return interact(state, 'keeper');
   if (action === 'read:clock' || action === 'read:greenhouse') {

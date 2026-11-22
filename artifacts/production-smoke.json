@@ -1,13 +1,25 @@
 {
-  "testedAt": "2026-11-22T04:15:45.572Z",
+  "testedAt": "2026-11-22T12:03:10.339Z",
   "errors": [],
   "requests": [
-    "http://127.0.0.1:55173/",
-    "http://127.0.0.1:55173/assets/index-UWSpjwt3.js",
-    "http://127.0.0.1:55173/assets/index-D9aRGVfe.css"
+    "http://127.0.0.1:60898/",
+    "http://127.0.0.1:60898/assets/harbor-cover-_IkN10a_.webp",
+    "http://127.0.0.1:60898/assets/index-DnUmZjj1.js",
+    "http://127.0.0.1:60898/assets/index-JxE9AHTP.css",
+    "http://127.0.0.1:60898/assets/postoffice-DlFiEIVe.webp",
+    "http://127.0.0.1:60898/assets/shen-DaVOAeE2.webp",
+    "http://127.0.0.1:60898/assets/shen-CvY18-nT.webp",
+    "http://127.0.0.1:60898/assets/xu-DUT2qRTF.webp",
+    "http://127.0.0.1:60898/assets/clock-Dtslx0t9.webp",
+    "http://127.0.0.1:60898/assets/cao-CbFrERZJ.webp",
+    "http://127.0.0.1:60898/assets/cao-j2tPuBOQ.webp"
   ],
   "passed": true,
   "noDevelopmentBridge": true,
   "localResourcesOnly": true,
-  "canvasColors": 282
+  "canvasColors": 236,
+  "playableRooms": [
+    "postoffice",
+    "clock"
+  ]
 }

@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 故事与文字 | AI 代理编写原创邮岛故事、人物文本与确定性分支；未使用已知作品的剧情文本作为游戏素材 | 参考作品用于研究，没有导入其故事文件 |
 | 场景、角色、光照与视觉效果 | AI 辅助编写 Three.js 几何、材质、动画与场景生成代码，在运行时渲染 2.5D 画面 | 未使用外部图像生成工具、下载的游戏图像、购买的美术或模型素材 |
-| 封面与对话肖像 | AI 辅助编写的绘制脚本使用 Pillow 构图、绘制图形和叠加工艺纹理，输出项目内的 WebP。通关明信片用浏览器 Canvas 绘制，复用封面插画 | 无外部图片、模型输出或购买素材 |
+| 封面、场景插画与人物立绘 | AI 辅助编写的绘制脚本使用 Pillow 为封面、四处可进入的场景、对话肖像与透明场景立绘构图、绘制和叠加纹理，输出项目内的 WebP。通关明信片用浏览器 Canvas 绘制，复用封面插画 | 无外部图片、模型输出或购买素材 |
 | 声音 | AI 辅助编写 Web Audio 振荡器与包络等合成代码，运行时合成环境音乐与提示音 | 未使用外部音乐/音频生成工具、录制配音、购买音乐或采样包 |
 | 交互与剧情执行 | AI 代理编写状态机、机关、寻路整合、分支、结局、界面和浏览器存档代码 | 使用下列开源库，不将库代码声称为本作原创 |
 | 图标 | 使用 Lucide 图标，并由 AI 编写界面整合代码 | 第三方开源图标，按其许可证保留署名和声明 |
@@ -44,6 +44,8 @@ Unity 官方 AI 工具、Rosebud/Rosie、Google DeepMind SIMA 2、GameArena 与 
 - 封面采用复古海滨海报的标题层级。对话、投递手记和明信片沿用邮品的边线、邮戳与留白。[Pinterest 海滨字体指南](https://guide.pinterest.com/design/beach-canva-fonts/) · [Pinterest 信封设计指南](https://guide.pinterest.com/diy-and-crafts/creative-ways-to-address-an-envelope/)
 
 以上公开资料用于视觉设计参考。游戏实际交付的封面、肖像和 2.5D 场景由项目代码原创绘制，无 Pinterest 图片嵌入或在线素材请求。可用 `py scripts/generate-cover.py` 和 `py scripts/generate-portraits.py` 重新绘制位图，脚本使用 Pillow，构建与运行使用已提交的 WebP。
+
+本轮另参考用户提供的短片中角色近景、清晰眼神、暖色室内与冷色外景的运镜语言。游戏在四处原创画面中将人物与背景分层，角色说话时使用近景构图。短片的素材、人物设定与配乐均未用于游戏。场景与立绘可用 `py scripts/generate-scenes.py` 和 `py scripts/generate-scene-cast.py` 重新绘制。[哔哩哔哩原短片](https://www.bilibili.com/video/BV187HT68EBG/)
 
 ## 审阅状态与提交用短文
 

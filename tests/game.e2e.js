@@ -27,15 +27,24 @@ const select = async action => {
   await page.waitForTimeout(120);
 };
 const close = async () => { if (await page.locator('#dialogue').isVisible()) await page.locator('.dialogue-close').click(); };
-const visit = async id => {
+const sceneAction = id => page.locator(`[data-scene-action="${id}"]`);
+const sceneEntrance = { clock: 'clock', greenhouse: 'greenhouse', platform: 'station' };
+const enter = async id => {
   await page.locator(`.world-label[data-id="${id}"]`).click();
+  await page.locator(`#scene-stage[data-scene-id="${sceneEntrance[id]}"]`).waitFor({ timeout: 25000 });
+};
+const leave = async () => { if (await page.locator('#scene-stage').isVisible()) await page.click('#scene-exit'); };
+const visit = async id => {
+  await leave();
+  if (sceneEntrance[id]) { await enter(id); await sceneAction(id).click(); }
+  else await page.locator(`.world-label[data-id="${id}"]`).click();
   await page.waitForFunction(() => !!window.__game.getDialogue(), null, { timeout: 25000 });
   return page.evaluate(() => window.__game.getDialogue());
 };
 const assertLayout = async () => {
   const failures = await page.evaluate(() => {
     const width = innerWidth, height = innerHeight;
-    return [...document.querySelectorAll('#dialogue button,.modal:not([hidden]) button,.modal:not([hidden]) select,.modal:not([hidden]) input,.hud button,.game-footer button,.camera-tools button')]
+    return [...document.querySelectorAll('#dialogue button,.modal:not([hidden]) button,.modal:not([hidden]) select,.modal:not([hidden]) input,.hud button,.game-footer button,.camera-tools button,#scene-stage button')]
       .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
       .filter(element => { const r = element.getBoundingClientRect(); return r.x < -1 || r.y < -1 || r.right > width + 1 || r.bottom > height + 1; })
       .map(element => element.textContent.trim() || element.getAttribute('aria-label'));
@@ -50,7 +59,14 @@ try {
   await page.click('#start-button');
   await verifyPortrait('沈伯');
   await screen('portrait-desktop');
-  await select('begin'); await select('close');
+  await select('begin');
+  assert.equal(await page.locator('#scene-stage').getAttribute('data-player-speaking'), 'true');
+  await page.locator('.scene-cast').evaluate(image => image.decode());
+  assert.match(await page.locator('.scene-cast').getAttribute('src'), /\/xu[.-]/);
+  await select('close');
+  assert(!(await page.locator('#scene-stage').isVisible()));
+  assert(await page.evaluate(() => document.activeElement.matches('[data-id="keeper"], #journal-button')));
+  check('Prologue cuts to Xu Du and returns focus to the map');
   await assertLayout();
   const first = await page.evaluate(() => window.__game.getWorld());
   await page.waitForFunction(frames => window.__game.getWorld().frames > frames + 5, first.frames, { timeout: 8000 });
@@ -130,6 +146,43 @@ try {
   await page.uncheck('#motion-setting'); await page.uncheck('#text-setting');
   await page.locator('#settings [data-close]').click();
   check('Reading, motion, volume and quality preferences persist; backup previews and restores');
+  const checkScene = async (room, castId, person) => {
+    assert.equal(await page.locator('#scene-stage').getAttribute('data-scene-id'), room);
+    await page.locator('#scene-backdrop').evaluate(image => image.decode());
+    await page.locator('.scene-cast').evaluate(image => image.decode());
+    assert(await page.locator('#scene-backdrop').evaluate(image => image.naturalWidth >= 1200));
+    assert(await page.locator('.scene-cast').evaluate(image => image.naturalWidth > 250));
+    assert.equal(await page.locator('#world').evaluate(world => world.inert), true);
+    assert.equal((await page.evaluate(() => window.__game.getWorld())).paused, true);
+    await assertLayout();
+    await page.mouse.move(0, 0);
+    await screen(`scene-${room}`);
+    await sceneAction(castId).click();
+    await verifyPortrait(person);
+    assert.equal(await page.locator('#scene-stage').evaluate(stage => stage.inert), true);
+    await close();
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.sceneAction), castId);
+  };
+  await visit('keeper'); await close();
+  await checkScene('postoffice', 'keeper', '沈伯');
+  await page.keyboard.press('Escape');
+  assert(!(await page.locator('#scene-stage').isVisible()));
+  assert.equal((await page.evaluate(() => window.__game.getWorld())).paused, false);
+  assert(await page.evaluate(() => document.activeElement.matches('[data-id="keeper"], #journal-button')));
+  await enter('clock'); await checkScene('clock', 'cao', '曹遥'); await leave();
+  await enter('greenhouse'); await checkScene('greenhouse', 'ye', '叶青'); await leave();
+  await enter('platform'); await checkScene('station', 'lan', '阿岚');
+  assert(await sceneAction('present-stamp').isVisible());
+  assert(!(await sceneAction('echo-stamp').isVisible()));
+  await sceneAction('present-stamp').focus();
+  await page.keyboard.press('q');
+  assert(await sceneAction('echo-stamp').isVisible());
+  assert(!(await sceneAction('present-stamp').isVisible()));
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.sceneAction), 'echo-stamp');
+  await sceneAction('lan').click();
+  assert.match(await page.locator('.dialogue-text').textContent(), /长椅/);
+  await close(); await page.click('#phase-button'); await leave();
+  check('Four independent illustrated rooms support cast conversations, phase-specific investigation and return navigation');
   await visit('keeper'); await page.keyboard.press('j');
   await page.click('#tab-deliveries'); await page.click('[data-track="greenhouse"]');
   await page.waitForFunction(() => !window.__game.getDialogue() && !window.__game.getWorld().paused && window.__game.getWorld().pathLength > 0);
@@ -161,6 +214,7 @@ try {
   await visit('seed-note'); await select('read:greenhouse'); await close();
   await page.click('#phase-button');
   assert.equal((await page.evaluate(() => window.__game.getState())).phase, 'echo');
+  await leave();
   await page.waitForFunction(() => !window.__game.getWorld().phaseTransitioning);
   await screen('echo-desktop');
   await visit('greenhouse');
@@ -262,7 +316,17 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.click('#journal-button'); await assertLayout(); await screen('journal-mobile'); await page.locator('#journal [data-close]').click();
-  await visit('clock'); await assertLayout(); await screen('dialogue-mobile'); await close();
+  await enter('clock'); await assertLayout();
+  const objectiveOverlap = await page.evaluate(() => {
+    const footer = document.querySelector('.delivery-status').getBoundingClientRect();
+    return [...document.querySelectorAll('.scene-action:not([hidden])')].some(button => {
+      const { left, right, top, bottom } = button.getBoundingClientRect();
+      return left < footer.right && right > footer.left && top < footer.bottom && bottom > footer.top;
+    });
+  });
+  assert.equal(objectiveOverlap, false);
+  await screen('scene-mobile');
+  await sceneAction('clock').click(); await assertLayout(); await screen('dialogue-mobile'); await close();
   await page.click('#audio-button');
   assert.equal(await page.locator('#audio-button').getAttribute('aria-label'), '关闭声音');
   await page.click('#audio-button');
@@ -277,6 +341,9 @@ try {
   await mobile.locator('[data-action="read:clock"]').waitFor({ timeout: 25000 });
   await mobile.locator('[data-action="read:clock"]').tap();
   assert((await mobile.evaluate(() => window.__game.getState())).clues.includes('clock'));
+  await mobile.locator('.dialogue-close').tap();
+  await mobile.getByRole('button', { name: '与曹遥交谈' }).tap();
+  assert.equal(await mobile.locator('.speaker').textContent(), '曹遥');
   await mobile.screenshot({ path: join(artifactDir, 'touch-clue.png') });
   await touch.close();
   check('Touch input walks to a clue and reads it on a mobile browser');

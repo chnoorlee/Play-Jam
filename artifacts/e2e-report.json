@@ -1,17 +1,20 @@
 {
-  "testedAt": "2026-11-22T04:15:05.680Z",
+  "testedAt": "2026-11-22T12:03:09.552Z",
   "baseURL": "http://127.0.0.1:5181",
   "checks": [
     {
+      "name": "Prologue cuts to Xu Du and returns focus to the map"
+    },
+    {
       "name": "Animated nonblank 2.5D scene",
       "detail": {
-        "drawCalls": 132,
-        "triangles": 67561
+        "drawCalls": 153,
+        "triangles": 95464
       }
     },
     {
       "name": "Canvas pixel diversity",
-      "detail": 244
+      "detail": 342
     },
     {
       "name": "Keyboard moves the character"
@@ -24,6 +27,9 @@
     },
     {
       "name": "Reading, motion, volume and quality preferences persist; backup previews and restores"
+    },
+    {
+      "name": "Four independent illustrated rooms support cast conversations, phase-specific investigation and return navigation"
     },
     {
       "name": "Journal navigation during dialogue closes it and starts walking to the selected delivery"
@@ -44,13 +50,16 @@
       "name": "Both time layers navigable and station letter deliverable"
     },
     {
+      "name": "All four illustrated character portraits display and decode"
+    },
+    {
       "name": "Save and continue restore all deliveries and choices"
     },
     {
       "name": "Ending text export downloads the actual story and disclosure"
     },
     {
-      "name": "Personal ending postcard exports a valid PNG"
+      "name": "Personal ending postcard exports a valid illustrated PNG"
     },
     {
       "name": "Landscape ending title and actions reachable by scrolling"

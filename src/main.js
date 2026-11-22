@@ -1,5 +1,6 @@
 import { createIcons, Mail, BookOpen, Volume2, VolumeX, Pause, Play, Eclipse, ArrowLeftRight, ArrowUpRight, ArrowRight, MessageCircle, X, RotateCw, Check, Flower2, Clock3, TrainFront, Feather, Download, Settings2, ZoomIn, ZoomOut, Scan, Lightbulb, Upload, ChevronRight, ArrowDown } from 'lucide';
 import { createWorld } from './world.js';
+import { createScenes, sceneForAnchor } from './scenes.js';
 import { createState, normalizeSave, getChapter, getObjective, getJournal, getHint, getReceipts, interact, choose, setPhase, adjustDial, adjustMirror, getPuzzle, getEnding } from './story.js';
 import { createAudio } from './audio.js';
 import { defaultSettings, normalizeSettings, encodeBackup, decodeBackup } from './settings.js';
@@ -19,14 +20,18 @@ const refreshIcons = () => createIcons({ icons, attrs: { 'aria-hidden': 'true' }
 const SAVE_KEY = 'the-last-post.save.v1';
 const SETTINGS_KEY = 'the-last-post.settings.v1';
 const portraits = new Map([['沈伯', shenPortrait], ['曹遥', caoPortrait], ['叶青', yePortrait], ['阿岚', lanPortrait]]);
+const sceneEntrances = new Set(['clock', 'greenhouse', 'platform']);
 const missions = { clock: { title: '归期', place: '钟楼', glyph: 'clock-3' }, greenhouse: { title: '春天', place: '温室', glyph: 'flower-2' }, platform: { title: '重逢', place: '旧站台', glyph: 'train-front' } };
 let state = createState(), dialogue = null, near = null, activeModal = null, introVisible = true, world;
 let saveAvailable = false, storageWarning = false, toastTimer, lastFocus;
+let sceneEntry = null, sceneAction = null;
 let zoom = 1, journalTab = 'clues', importRevision = 0;
 const hintLevels = { clock: 1, greenhouse: 1, platform: 1 };
 const defaults = defaultSettings({ narrow: innerWidth < 600 || navigator.hardwareConcurrency <= 4, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches });
 let settings = defaults;
 const audio = createAudio();
+const sceneHost = $('#scene-stage');
+const scenes = createScenes(sceneHost, { onAction: runInteraction, onExit: () => leaveScene() });
 try {
   const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
   state = normalizeSave(raw);
@@ -66,8 +71,11 @@ function save() {
 }
 
 function pauseWorld() {
-  const paused = introVisible || !!dialogue || !!activeModal || !!state.ending || document.hidden;
+  const roomOpen = Boolean(scenes.current);
+  const paused = introVisible || !!dialogue || !!activeModal || !!state.ending || roomOpen || document.hidden;
   world?.setPaused(paused);
+  $('#world').inert = roomOpen;
+  sceneHost.inert = Boolean(dialogue || activeModal || state.ending);
   document.body.classList.toggle('intro-open', introVisible);
   document.body.classList.toggle('dialogue-open', !!dialogue);
   document.body.classList.toggle('modal-open', !!activeModal);
@@ -84,6 +92,7 @@ function update() {
   $('#stamps').setAttribute('aria-label', `已投递 ${Object.values(state.solved).filter(Boolean).length} / 3 封信`);
   world?.setPhase(state.phase);
   world?.setProgress(state);
+  scenes.setState(state);
   audio.setPhase(state.phase);
   refreshIcons();
   pauseWorld();
@@ -92,12 +101,18 @@ function update() {
 function displayDialogue(value) {
   dialogue = value;
   $('#dialogue').hidden = !value;
-  if (!value) { pauseWorld(); return; }
+  const speaker = value?.speaker.split(' · ')[0];
+  scenes.setSpeaker(value?.speaker);
+  if (!value) {
+    pauseWorld();
+    if (scenes.current && !activeModal) scenes.focus(sceneAction);
+    return;
+  }
   if (value.ending) { dialogue = null; $('#dialogue').hidden = true; showEnding(); return; }
-  const portrait = portraits.get(value.speaker.split(' · ')[0]);
+  const portrait = portraits.get(speaker);
   const portraitImage = portrait ? `<img class="speaker-portrait" src="${escape(portrait)}" width="48" height="48" alt="" decoding="async">` : '';
   $('#dialogue').innerHTML = `<div class="dialogue-header"><div class="speaker-identity">${portraitImage}<span class="speaker">${value.receipt ? icon('mail') : ''}${escape(value.speaker)}</span></div><button class="dialogue-close" aria-label="收起对话">${icon('x')}</button></div><h2>${escape(value.title)}</h2><p class="dialogue-text">${escape(value.text)}</p><div id="puzzle-slot"></div><div class="dialogue-choices">${value.choices.map(choice => `<button class="choice-button" data-action="${escape(choice.action)}"><span>${escape(choice.label)}</span>${icon('arrow-right')}</button>`).join('')}</div>`;
-  $('.dialogue-close').addEventListener('click', () => displayDialogue(null));
+  $('.dialogue-close').addEventListener('click', dismissDialogue);
   $('#dialogue').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => act(button.dataset.action)));
   if (value.puzzle) renderPuzzle(value.puzzle);
   if (value.assembly) renderAssembly();
@@ -133,6 +148,7 @@ function renderAssembly() {
 }
 
 function act(action) {
+  if (action === 'close') { dismissDialogue(); return; }
   const before = Object.values(state.solved).filter(Boolean).length;
   const beforeJournal = getJournal(state).length;
   const result = choose(state, action);
@@ -146,9 +162,45 @@ function act(action) {
   displayDialogue(result);
 }
 
+function dismissDialogue() {
+  const returnToHarbor = dialogue?.returnToHarbor;
+  displayDialogue(null);
+  if (returnToHarbor) leaveScene();
+}
+
+function leaveScene(restoreFocus = true) {
+  if (!scenes.current) return;
+  const entry = sceneEntry;
+  scenes.hide();
+  sceneEntry = null;
+  sceneAction = null;
+  pauseWorld();
+  if (restoreFocus) {
+    const target = $(`.world-label[data-id="${entry}"]`);
+    const canFocus = target && !target.disabled && !target.hidden && getComputedStyle(target).visibility === 'visible';
+    (canFocus ? target : $('#journal-button')).focus({ preventScroll: true });
+  }
+}
+
 function onInteract(id) {
+  if (introVisible || activeModal || dialogue || state.ending || scenes.current) return;
+  const room = sceneForAnchor(id);
+  if (room) {
+    sceneEntry = id;
+    scenes.show(room, state);
+    if (state.started && sceneEntrances.has(id)) {
+      if (!state.solved[id]) state.activeMission = id;
+      audio.chime(); save(); update(); scenes.focus();
+      return;
+    }
+  }
+  runInteraction(id);
+}
+
+function runInteraction(id) {
   if (introVisible || activeModal || dialogue || state.ending) return;
-  const mission = { letter: 'clock', clock: 'clock', 'seed-note': 'greenhouse', greenhouse: 'greenhouse', platform: 'platform', 'present-stamp': 'platform', 'echo-stamp': 'platform' }[id];
+  sceneAction = id;
+  const mission = { letter: 'clock', clock: 'clock', cao: 'clock', 'seed-note': 'greenhouse', greenhouse: 'greenhouse', ye: 'greenhouse', platform: 'platform', lan: 'platform', 'present-stamp': 'platform', 'echo-stamp': 'platform' }[id];
   if (mission && !state.solved[mission]) state.activeMission = mission;
   audio.chime();
   displayDialogue(interact(state, id));
@@ -189,7 +241,7 @@ function showJournal(tab = journalTab) {
   $('#journal').querySelectorAll('[data-hint]').forEach(button => button.addEventListener('click', () => showHints(button.dataset.hint)));
   $('#journal').querySelectorAll('[data-track]').forEach(button => button.addEventListener('click', () => {
     const id = button.dataset.track;
-    state.activeMission = id; save(); closeModal(); displayDialogue(null); update();
+    state.activeMission = id; save(); closeModal(); displayDialogue(null); leaveScene(false); update();
     const target = id === 'clock' && !state.clues.includes(id) ? 'letter' : id === 'greenhouse' && !state.clues.includes(id) ? 'seed-note' : id;
     world?.moveTo(target);
   }));
@@ -237,13 +289,14 @@ function restart() {
   state = createState();
   setZoom(1);
   dialogue = null; $('#dialogue').hidden = true; $('#ending').hidden = true;
-  save(); update();
-  displayDialogue(interact(state, 'keeper'));
+  leaveScene(false);
+  onInteract('keeper');
 }
 
 function showEnding() {
   const ending = getEnding(state);
   if (!ending) return;
+  leaveScene(false);
   $('#ending').hidden = false;
   $('#ending').innerHTML = `<div class="ending-content"><p class="ending-kicker">THE LAST POST · 余信</p><h2 id="ending-title">${escape(ending.title)}</h2><p class="ending-subtitle">${escape(ending.subtitle)}</p><p class="ending-story">${escape(ending.text)}</p><div class="reflections">${ending.reflections.map(text => `<p>${escape(text)}</p>`).join('')}</div><div class="keepsake-album">${ending.receipts.map(receipt => `<div>${icon(missions[receipt.id].glyph)}<small>${escape(receipt.recipient)}留下</small><strong>${escape(receipt.keepsake)}</strong></div>`).join('')}</div><div class="ending-actions"><button id="revisit-button" class="primary-button"><span>回到最后一夜</span>${icon('rotate-cw')}</button><button id="postcard-button" class="text-button">${icon('download')} 收藏夜航明信片</button><button id="export-button" class="text-button" aria-label="导出投递手记">${icon('feather')} 留下这封信</button></div><p class="ending-footnote">原创故事与程序化美术 · AI 辅助制作<br>谨以此夜，献给所有迟到的告别。</p></div>`;
   $('#revisit-button').addEventListener('click', () => { state.ending = null; $('#ending').hidden = true; save(); update(); toast('灯还亮着，最后的决定仍在等你。'); });
@@ -321,7 +374,7 @@ async function startGame(continuing) {
   $('#intro').hidden = true;
   update();
   if (continuing && state.ending) showEnding();
-  else if (!state.started) displayDialogue(interact(state, 'keeper'));
+  else if (!state.started) onInteract('keeper');
   else toast('旧邮包还在，旅程接着走。');
 }
 
@@ -356,7 +409,7 @@ $('#save-file').addEventListener('change', async event => {
     $('#restore-preview').innerHTML = `<div class="restore-preview"><strong>${escape(getChapter(imported))} · 已送达 ${getReceipts(imported).length} / 3</strong><p>恢复后将替换这个浏览器里的投递记录。</p><button id="confirm-restore" class="primary-button"><span>恢复这段旅程</span>${icon('upload')}</button></div>`;
     $('#confirm-restore').addEventListener('click', () => {
       if (revision !== importRevision) return;
-      closeModal(); displayDialogue(null); $('#ending').hidden = true;
+      closeModal(); displayDialogue(null); leaveScene(false); $('#ending').hidden = true;
       state = imported; save(); setZoom(1); update();
       if (state.ending) showEnding(); else toast('旧邮包已接好，旅程可以继续了。');
     }); refreshIcons(); $('#confirm-restore').focus();
@@ -391,7 +444,8 @@ document.addEventListener('keydown', event => {
   }
   if (event.key === 'Escape') {
     if (activeModal) closeModal();
-    else if (dialogue) displayDialogue(null);
+    else if (dialogue) dismissDialogue();
+    else if (scenes.current) leaveScene();
     else if (!introVisible && !state.ending) showPause();
   }
   if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;

@@ -1095,12 +1095,11 @@ export function createWorld(container, callbacks = {}) {
       marker.scale.setScalar(targeted?1.35:completed?.68:1);
       marker.position.y=1.35+Math.sin(t*2+a.x)*.08;marker.rotation.y=t*.6;
       label.classList.toggle('near',nearby||targeted);
-      label.disabled=paused;
     }
     if(labelsDirty)layoutLabels();
     if(nearest!==nearId){nearId=nearest;callbacks.onNear?.(nearest?{id:nearest,...ANCHORS[nearest]}:null);}
     clockHands.rotation.z=phase==='echo'&&!progress?.solved?.clock?Math.sin(t*.15)*.2:0;
-    renderer.render(scene,camera);
+    if(!container.inert)renderer.render(scene,camera);
   }
   renderer.setAnimationLoop(animate);
 
@@ -1128,7 +1127,12 @@ export function createWorld(container, callbacks = {}) {
   return {
     setPhase,
     setProgress,setZoom,setReducedMotion,setQuality,celebrate,
-    setPaused(value){paused=Boolean(value);if(paused){keySet.clear();path=[];pending=null;destination.visible=false;}},
+    setPaused(value){
+      const next=Boolean(value);
+      if(next!==paused)for(const label of labels.values())label.disabled=next;
+      paused=next;
+      if(paused){keySet.clear();path=[];pending=null;destination.visible=false;}
+    },
     moveTo,
     getDebug(){
       const anchors={};for(const [id,a]of Object.entries(ANCHORS)) {
