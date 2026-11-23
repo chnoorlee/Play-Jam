@@ -6,23 +6,39 @@ import { join } from 'node:path';
 import { chromium } from '@playwright/test';
 import { PNG } from 'pngjs';
 
+function fullMapLayout({viewport, view, report}) {
+  const pan = document.querySelector('.voyage-pan');
+  const frame = pan.getBoundingClientRect();
+  const image = pan.querySelector('.voyage-plate > img').getBoundingClientRect();
+  const pins = [...pan.querySelectorAll('.voyage-pin')].map(pin => pin.getBoundingClientRect());
+  const contained = box => box.width > 0 && box.height > 0 && box.left >= frame.left - 1 &&
+    box.right <= frame.right + 1 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1;
+  const viewportReady = Math.abs(visualViewport.width - viewport.width) <= 1 &&
+    Math.abs(visualViewport.height - viewport.height) <= 1;
+  const fits = viewportReady && pan.scrollWidth <= pan.clientWidth + 1 && contained(image) &&
+    pins.length === (view === 'overview' ? 3 : 0) && pins.every(contained);
+  if (!report) return fits;
+  return {
+    fits, view, viewport, visual: [visualViewport.width, visualViewport.height],
+    inner: [innerWidth, innerHeight], body: document.body.getBoundingClientRect().toJSON(),
+    frame: frame.toJSON(), image: image.toJSON(), pins: pins.map(pin => pin.toJSON()),
+    scrollWidth: pan.scrollWidth, clientWidth: pan.clientWidth,
+    coarse: matchMedia('(pointer: coarse)').matches, landscape: matchMedia('(orientation: landscape)').matches,
+    landscapeRule: matchMedia('(pointer: coarse) and (orientation: landscape) and (max-height: 650px)').matches,
+    grid: getComputedStyle(pan.closest('.voyage')).gridTemplate, panDisplay: getComputedStyle(pan).display,
+  };
+}
+
 async function assertFullMap(page, view = 'overview') {
-  const geometry = await page.locator('.voyage-pan').evaluate(pan => {
-    const frame = pan.getBoundingClientRect();
-    const pins = [...pan.querySelectorAll('.voyage-pin')];
-    const contained = node => {
-      const box = node.getBoundingClientRect();
-      return box.width > 0 && box.height > 0 && box.left >= frame.left - 1 &&
-        box.right <= frame.right + 1 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1;
-    };
-    return {
-      fits: pan.scrollWidth <= pan.clientWidth + 1 && contained(pan.querySelector('.voyage-plate > img')),
-      pins: pins.length, pinsFit: pins.every(contained),
-    };
-  });
-  assert.ok(geometry.fits, view + ' must show the entire illustration at ' + JSON.stringify(page.viewportSize()));
-  assert.equal(geometry.pins, view === 'overview' ? 3 : 0);
-  assert.ok(geometry.pinsFit, 'all navigation pins fit inside the map');
+  const expected = {viewport: page.viewportSize(), view};
+  try {
+    await page.waitForFunction(fullMapLayout, expected, {polling: 'raf', timeout: 10000});
+  } catch (error) {
+    const geometry = await page.evaluate(fullMapLayout, {...expected, report: true});
+    throw new Error('Full map failed to settle at requested viewport: ' + JSON.stringify(geometry), {cause: error});
+  }
+  const geometry = await page.evaluate(fullMapLayout, {...expected, report: true});
+  assert.ok(geometry.fits, 'Full map failed final geometry check: ' + JSON.stringify(geometry));
 }
 
 async function assertVisibleEffect(page, effectName) {
