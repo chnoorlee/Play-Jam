@@ -1,5 +1,6 @@
 export const ports = ['marsh', 'saltworks', 'observatory'];
 const pieces = { marsh: ['inner', 'outer'], saltworks: ['2', '3', '5'], observatory: ['short', 'long'] };
+export const tideNotches = { dawn: 3, now: 2 };
 export const recipients = { marsh: ['crew', 'passengers'], saltworks: ['workers', 'families'], observatory: ['window', 'platform'] };
 
 function emptyStop() {
@@ -7,7 +8,9 @@ function emptyStop() {
 }
 
 export function createVoyage() {
-  return { active: false, port: 'marsh', spot: null, stops: Object.fromEntries(ports.map(id => [id, emptyStop()])) };
+  const stops = Object.fromEntries(ports.map(id => [id, emptyStop()]));
+  stops.marsh.tideReadings = [];
+  return { active: false, port: 'marsh', spot: null, stops };
 }
 
 export function portOpen(voyage, id) {
@@ -28,6 +31,15 @@ export function normalizeVoyage(raw) {
     const source = raw.stops?.[id], stop = result.stops[id];
     if (!source || !portOpen(result, id)) break;
     stop.seen = [0, 1].filter(index => Array.isArray(source.seen) && source.seen.includes(index));
+    if (id === 'marsh') {
+      const periods = Object.keys(tideNotches);
+      // Earlier saves marked the gauge seen when the player read both levels on its sign.
+      stop.tideReadings = source.tideReadings === undefined && stop.seen.includes(1)
+        ? periods
+        : periods.filter(period => Array.isArray(source.tideReadings) && source.tideReadings.includes(period));
+      stop.seen = stop.seen.filter(index => index !== 1);
+      if (stop.tideReadings.length === periods.length) stop.seen.push(1);
+    }
     const valid = Array.isArray(source.draft) ? source.draft.filter(value => pieces[id].includes(value)) : [];
     stop.draft = id === 'saltworks' ? [...new Set(valid)] : valid.slice(0, id === 'marsh' ? 1 : 3);
     stop.solved = source.solved === true && stop.seen.length === 2 && fits(id, stop.draft);
@@ -50,7 +62,18 @@ export function inspect(voyage, index) {
   if (![0, 1, 2].includes(index)) return;
   voyage.spot = index;
   const stop = voyage.stops[voyage.port];
+  if (voyage.port === 'marsh' && index === 1) return;
   if (index < 2 && !stop.seen.includes(index)) stop.seen.push(index);
+}
+
+export function recordTide(voyage, period, notch) {
+  if (voyage.port !== 'marsh' || voyage.spot !== 1 || tideNotches[period] !== notch || !Object.hasOwn(tideNotches, period)) return 'wrong';
+  const stop = voyage.stops.marsh;
+  if (!stop.tideReadings.includes(period)) {
+    stop.tideReadings = Object.keys(tideNotches).filter(key => key === period || stop.tideReadings.includes(key));
+    if (stop.tideReadings.length === 2 && !stop.seen.includes(1)) stop.seen.push(1);
+  }
+  return 'recorded';
 }
 
 export function changeDraft(voyage, piece) {

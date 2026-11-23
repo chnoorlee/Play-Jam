@@ -16,7 +16,7 @@ export const places = {
     coords: [[22,58],[53,43],[78,66]],
     clues: [
       ['屋梁下钉着渡工的规矩：水涨走内汊，水落走外汊。退潮时，内汊的芦根会钩住船底。', 'A plank above the mooring line reads: take the inner cut on a rising tide and the outer cut on a falling tide. Reed roots catch the keel when the inner cut drains.'],
-      ['清早的粉笔线画在第三格。现在水面只到第二格，上一格露出了湿亮的青苔。', 'The dawn chalk line crosses the third notch. Water touches the second now. The moss above it still glistens.'],
+      ['渡工把清早拓下的粉笔线夹在簿里。你翻开那一页，又看了一眼眼前的水面。两次水痕各碰到了潮尺的哪一格？', 'The ferryman kept a rubbing of the dawn chalk line. You unfold it beside the gauge. Which notch does each waterline meet?'],
     ],
     trace: state => state.decisions.platform === 'wait'
       ? ['棚门钉着阿岚留给小川的新站地址。渡工把被雨泡松的那枚钉子又敲紧了。', 'Lan’s forwarding address for Xiaochuan hangs on the shed door. The ferryman taps its rain-loosened nail back into place.']

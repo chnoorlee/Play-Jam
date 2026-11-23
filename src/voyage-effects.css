@@ -1,0 +1,47 @@
+.voyage .voyage-effect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.voyage-ferry { transform: translate(922px, 463px); }
+[data-voyage-effect="sailing"] .voyage-ferry { transform: translate(509px, 379px) scale(.48); }
+.voyage-last-ferry { transform: translate(1079px, 343px) scale(.13); }
+.voyage-signal-flash { opacity: .3; }
+
+/* The end pose is the base style, including on return visits and reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.reduced-motion) [data-animate] .voyage-signal-flash {
+    animation: voyage-send-call 2.5s linear both;
+  }
+  body:not(.reduced-motion) [data-animate] .voyage-ferry {
+    animation: voyage-depart 3s ease-in-out both;
+  }
+  body:not(.reduced-motion) [data-animate] .voyage-last-ferry {
+    animation: voyage-arrive 2.6s ease-out both;
+  }
+  body:not(.reduced-motion) [data-animate] .voyage-lamp-beam {
+    animation: voyage-light .7s ease-out both;
+  }
+  body:not(.reduced-motion) [data-animate] .voyage-window-light {
+    animation: voyage-light .45s ease-out var(--lamp-delay) both;
+  }
+}
+@keyframes voyage-depart {
+  from { transform: translate(922px, 463px); }
+  47% { transform: translate(734px, 437px) scale(.83); }
+  to { transform: translate(509px, 379px) scale(.48); }
+}
+@keyframes voyage-arrive {
+  from { transform: translate(982px, 341px) scale(.085); }
+  to { transform: translate(1079px, 343px) scale(.13); }
+}
+@keyframes voyage-light { from { opacity: 0; } to { opacity: 1; } }
+/* The three pulses last one, three, and one units, with dark intervals. */
+@keyframes voyage-send-call {
+  0%, 4%, 22%, 32%, 70%, 80% { opacity: .07; }
+  7%, 19%, 35%, 67%, 83%, 95% { opacity: .97; }
+  98%, 100% { opacity: .3; }
+}

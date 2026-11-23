@@ -4,6 +4,55 @@ import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
+import { PNG } from 'pngjs';
+
+async function assertFullMap(page, view = 'overview') {
+  const geometry = await page.locator('.voyage-pan').evaluate(pan => {
+    const frame = pan.getBoundingClientRect();
+    const pins = [...pan.querySelectorAll('.voyage-pin')];
+    const contained = node => {
+      const box = node.getBoundingClientRect();
+      return box.width > 0 && box.height > 0 && box.left >= frame.left - 1 &&
+        box.right <= frame.right + 1 && box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1;
+    };
+    return {
+      fits: pan.scrollWidth <= pan.clientWidth + 1 && contained(pan.querySelector('.voyage-plate > img')),
+      pins: pins.length, pinsFit: pins.every(contained),
+    };
+  });
+  assert.ok(geometry.fits, view + ' must show the entire illustration at ' + JSON.stringify(page.viewportSize()));
+  assert.equal(geometry.pins, view === 'overview' ? 3 : 0);
+  assert.ok(geometry.pinsFit, 'all navigation pins fit inside the map');
+}
+
+async function assertVisibleEffect(page, effectName) {
+  const effect = page.locator('[data-voyage-effect="' + effectName + '"]');
+  await effect.waitFor({state: 'visible'});
+  const boatWidths = await effect.locator('image').evaluateAll(images => Promise.all(images.map(async node => {
+    const bitmap = new Image();
+    bitmap.src = node.href.baseVal;
+    await bitmap.decode();
+    return bitmap.naturalWidth;
+  })));
+  if (effectName !== 'window') {
+    assert.ok(boatWidths.length > 0 && boatWidths.every(width => width > 100), effectName + ' must load a painted ferry');
+  }
+  const frame = page.locator('.voyage-pan');
+  const withEffect = PNG.sync.read(await frame.screenshot({animations: 'disabled'}));
+  const without = PNG.sync.read(await frame.screenshot({
+    animations: 'disabled', style: '[data-voyage-effect] { visibility: hidden !important; }',
+  }));
+  assert.equal(withEffect.width, without.width);
+  assert.equal(withEffect.height, without.height);
+  let changed = 0;
+  for (let i = 0; i < withEffect.data.length; i += 4) {
+    const difference = Math.abs(withEffect.data[i] - without.data[i]) +
+      Math.abs(withEffect.data[i + 1] - without.data[i + 1]) +
+      Math.abs(withEffect.data[i + 2] - without.data[i + 2]);
+    if (difference > 45) changed++;
+  }
+  assert.ok(changed > 50, effectName + ' must materially change the painted landscape; pixels: ' + changed);
+}
 
 const server = process.env.GAME_URL ? null : spawn(process.execPath, ['server.mjs'], {env: {...process.env, PORT: '0'}, windowsHide: true});
 let browser;
@@ -16,7 +65,7 @@ try {
   if (process.env.ARTIFACT_DIR) await mkdir(process.env.ARTIFACT_DIR, {recursive: true});
   browser = await chromium.launch();
   for (const mobile of [false, true]) {
-    const context = await browser.newContext({viewport: mobile ? {width: 390, height: 844} : {width: 1366, height: 768}, hasTouch: mobile, isMobile: mobile});
+    const context = await browser.newContext({viewport: mobile ? {width: 390, height: 844} : {width: 1366, height: 768}, hasTouch: mobile, isMobile: mobile, reducedMotion: mobile ? 'reduce' : 'no-preference'});
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -42,11 +91,29 @@ try {
       for (const piece of pieces) await operate('piece', piece);
       await operate('check'); await operate('deliver', recipient);
     };
+    const saveShot = async name => {
+      if (process.env.ARTIFACT_DIR) {
+        await page.screenshot({path: join(process.env.ARTIFACT_DIR, name + (mobile ? '-mobile.png' : '-desktop.png'))});
+      }
+    };
+    const readMarsh = () => page.evaluate(() => JSON.parse(localStorage.getItem('the-last-post.save.v1')).voyage.stops.marsh);
     assert.equal(await action('port', 'saltworks').isDisabled(), true);
     for (const [id, recipient] of [['marsh', mobile ? 'crew' : 'passengers'], ['saltworks', mobile ? 'families' : 'workers'], ['observatory', mobile ? 'window' : 'platform']]) {
       await operate('port', id);
-      await page.locator('.voyage-landscape img').evaluate(img => img.decode());
-      assert.ok(await page.locator('.voyage-landscape img').evaluate(img => img.naturalWidth > 600));
+      const art = page.locator('.voyage-plate > img').first();
+      await art.evaluate(img => img.decode());
+      assert.ok(await art.evaluate(img => img.naturalWidth > 600));
+      if (mobile) {
+        await assertFullMap(page);
+        if (id === 'marsh') {
+          for (const viewport of [{width: 625, height: 900}, {width: 844, height: 390}]) {
+            await page.setViewportSize(viewport);
+            await assertFullMap(page);
+          }
+          await page.setViewportSize({width: 390, height: 844});
+          await assertFullMap(page);
+        }
+      }
       const alignment = await page.locator('.voyage-landscape').evaluate(map => {
         const img = map.querySelector('img');
         const bounds = img.getBoundingClientRect();
@@ -59,21 +126,49 @@ try {
           });
       });
       assert.ok(alignment, 'hotspot targets align with the original uncropped illustration coordinates');
-      if (process.env.ARTIFACT_DIR) {
-        await page.screenshot({path: join(process.env.ARTIFACT_DIR, id + (mobile ? '-mobile.png' : '-desktop.png'))});
-      }
+      await saveShot(id);
+      if (id === 'marsh') await assertVisibleEffect(page, 'moored');
       await visitSpot(2); await operate('check'); assert.ok(await page.locator('.voyage-feedback').isVisible());
       await visitSpot(0);
       await page.keyboard.press('Tab');
       assert.ok(await page.locator('.voyage-choices button:first-child').evaluate(node => node === document.activeElement));
       if (id !== 'observatory') assert.ok(await page.locator('.voyage-trace').isVisible());
+      if (mobile) {
+        assert.ok(await page.locator('.voyage-pan').evaluate(pan => pan.scrollWidth > pan.clientWidth + 30), 'landmark opens in closer view');
+        await operate('overview');
+        await assertFullMap(page);
+      }
       await visitSpot(1);
+      if (id === 'marsh') {
+        await operate('tide-notch', '1');
+        assert.deepEqual((await readMarsh()).tideReadings, []);
+        await operate('tide-notch', '3');
+        assert.deepEqual((await readMarsh()).tideReadings, ['dawn']);
+        await page.reload();
+        await page.locator('#continue-button').click();
+        await page.locator('.tide-gauge').waitFor();
+        assert.deepEqual((await readMarsh()).tideReadings, ['dawn']);
+        assert.ok(!(await readMarsh()).seen.includes(1));
+        await visitSpot(2);
+        await operate('piece', 'outer'); await operate('check');
+        assert.ok(await page.locator('.voyage-feedback').isVisible());
+        assert.ok(!(await readMarsh()).solved, 'one waterline cannot clear the ferry');
+        await visitSpot(1);
+        await operate('tide-period', 'now');
+        await saveShot('tide-gauge');
+        await operate('tide-notch', '2');
+        assert.deepEqual((await readMarsh()).tideReadings, ['dawn', 'now']);
+        assert.ok((await readMarsh()).seen.includes(1));
+      }
       if (id === 'observatory') assert.ok(await page.locator('.voyage-trace').isVisible());
       await visitSpot(2);
       if (id === 'marsh') {
         await operate('piece', 'inner'); await operate('check');
         assert.ok(await page.locator('.voyage-feedback').isVisible());
-        await solve(['outer'], recipient);
+        await operate('piece', 'outer'); await operate('check');
+        await page.locator('[data-voyage-effect="sailing"]').waitFor();
+        if (mobile) await assertFullMap(page, 'outcome');
+        await operate('deliver', recipient);
       } else if (id === 'saltworks') await solve(['2', '5'], recipient);
       else {
         await operate('piece', 'short'); await operate('piece', 'long');
@@ -82,13 +177,30 @@ try {
         assert.match(await page.locator('.voyage-instrument').innerText(), /●\s+━\s+□/);
         await operate('language');
         assert.equal(await page.locator('#voyage').getAttribute('lang'), mobile ? 'en' : 'zh-CN');
-        await solve(['short'], recipient);
+        await operate('piece', 'short'); await operate('check');
+        const signal = page.locator('[data-voyage-effect="signal"]');
+        await signal.waitFor({state: 'visible'});
+        assert.notEqual(await signal.getAttribute('aria-label'), null);
+        if (mobile) assert.equal(await signal.evaluate(node => node.getAnimations({subtree:true}).length), 0);
+        await operate('deliver', recipient);
+        if (mobile) await assertFullMap(page, 'outcome');
+        await assertVisibleEffect(page, recipient);
+        await saveShot('signal-' + recipient);
       }
       assert.ok(await page.locator('.voyage-receipt').isVisible());
     }
+    await operate('overview');
+    if (mobile) await assertFullMap(page);
+    await visitSpot(2);
+    await page.reload(); await page.locator('#continue-button').click();
+    assert.ok(await page.locator('.voyage-receipt').isVisible());
+    const restored = page.locator('[data-voyage-effect="' + (mobile ? 'window' : 'platform') + '"]');
+    assert.ok(await restored.isVisible(), 'reopening the receipt retains the chosen lighting');
+    assert.equal(await restored.getAttribute('data-animate'), null);
     await operate('port', 'marsh');
     await visitSpot(2);
     assert.ok(await page.locator('.voyage-receipt').isVisible());
+    await assertVisibleEffect(page, 'sailing');
     const download = page.waitForEvent('download');
     await operate('backup');
     const stream = await (await download).createReadStream(), chunks = [];

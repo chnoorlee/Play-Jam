@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, normalizeSave } from '../src/story.js';
 import { encodeBackup, decodeBackup } from '../src/settings.js';
-import { createVoyage, visit, inspect, changeDraft, checkDraft, deliver, normalizeVoyage } from '../src/afterword-state.js';
+import { createVoyage, visit, inspect, recordTide, changeDraft, checkDraft, deliver, normalizeVoyage } from '../src/afterword-state.js';
 
 function oldEnding() {
   const state = createState();
@@ -27,7 +27,9 @@ test('three distinct mechanisms, retry, delivery, revisit and backup recovery', 
   const state = normalizeSave(oldEnding());
   let voyage = state.voyage;
   voyage.active = true;
-  inspect(voyage, 0); inspect(voyage, 1); inspect(voyage, 2);
+  inspect(voyage, 0); inspect(voyage, 1);
+  recordTide(voyage, 'dawn', 3); recordTide(voyage, 'now', 2);
+  inspect(voyage, 2);
   changeDraft(voyage, 'inner'); assert.equal(checkDraft(voyage), 'wrong');
   changeDraft(voyage, 'outer'); assert.equal(checkDraft(voyage), 'ready');
   deliver(voyage, 'crew'); deliver(voyage, 'passengers');
@@ -49,6 +51,35 @@ test('three distinct mechanisms, retry, delivery, revisit and backup recovery', 
   assert.equal(visit(voyage, 'marsh'), true);
   assert.equal(voyage.stops.marsh.delivered, 'crew');
   assert.equal(voyage.stops.observatory.delivered, 'window');
+});
+
+test('both tide records are observed on site and a partial observation survives a backup', () => {
+  const state = normalizeSave(oldEnding());
+  const { voyage } = state;
+  inspect(voyage, 0);
+  assert.equal(recordTide(voyage, 'now', 2), 'wrong');
+  inspect(voyage, 1);
+  assert.equal(recordTide(voyage, 'now', 3), 'wrong');
+  assert.deepEqual(voyage.stops.marsh.tideReadings, []);
+  assert.equal(recordTide(voyage, 'now', 2), 'recorded');
+  assert.equal(recordTide(voyage, 'now', 2), 'recorded');
+  changeDraft(voyage, 'outer');
+  assert.equal(checkDraft(voyage), 'missing');
+  const restored = decodeBackup(encodeBackup(state)).voyage;
+  assert.deepEqual(restored.stops.marsh.tideReadings, ['now']);
+  assert.equal(recordTide(restored, 'dawn', 3), 'recorded');
+  assert.equal(checkDraft(restored), 'ready');
+});
+
+test('a pre-gauge ferry save keeps its old observations and route unlocks', () => {
+  const stops = {marsh: {seen: [0, 1], draft: ['outer'], solved: true, delivered: 'passengers'}};
+  const saved = normalizeVoyage({active: true, port: 'saltworks', stops});
+  assert.equal(saved.port, 'saltworks');
+  assert.equal(saved.stops.marsh.delivered, 'passengers');
+  assert.deepEqual(saved.stops.marsh.tideReadings, ['dawn', 'now']);
+  const inconsistent = normalizeVoyage({port: 'saltworks', stops: {marsh: {...stops.marsh, tideReadings: ['now', 'now', 'tide']}}});
+  assert.equal(inconsistent.port, 'marsh');
+  assert.deepEqual(inconsistent.stops.marsh.seen, [0]);
 });
 
 test('corrupt and premature saves cannot skip locked destinations', () => {

@@ -1,6 +1,8 @@
 import { createElement, ArrowLeft, ArrowRight, Check, Flag, LockKeyhole, MapPin, Download, Languages, Undo2 } from 'lucide';
 import { passages, places } from './afterword-places.js';
-import { ports, portOpen, visit, inspect, changeDraft, checkDraft, deliver } from './afterword-state.js';
+import { ports, portOpen, visit, inspect, recordTide, changeDraft, checkDraft, deliver } from './afterword-state.js';
+import { createTideGauge } from './voyage-tide.js';
+import { createVoyageEffect } from './voyage-effects.js';
 import './afterword.css';
 
 function el(tag, cls, text) {
@@ -26,9 +28,10 @@ function button(action, value, label, glyph, className = '') {
 
 export function createAfterword(host, { getState, language, switchLanguage, save, exit, backup, chime }) {
   let message = '', lastPort = '', previousSpot = null;
+  let tidePeriod = 'dawn', tideFeedback = '';
   const tr = pair => pair[language() === 'en' ? 1 : 0];
 
-  function render(focus) {
+  function render(focus, animate = false) {
     const state = getState(), voyage = state.voyage, id = voyage.port, place = places[id], stop = voyage.stops[id];
     if (!voyage.active) { host.hidden = true; return; }
     const samePort = lastPort === id;
@@ -37,6 +40,8 @@ export function createAfterword(host, { getState, language, switchLanguage, save
     const reading = sameSpot ? host.querySelector('.voyage-paper')?.scrollTop : 0;
     host.hidden = false;
     host.dataset.port = id;
+    const showingResult = voyage.spot === 2 && stop.solved && (id === 'marsh' || id === 'observatory');
+    host.dataset.view = voyage.spot === null ? 'overview' : showingResult ? 'outcome' : 'detail';
     host.lang = language();
     lastPort = id;
     previousSpot = voyage.spot;
@@ -67,7 +72,8 @@ export function createAfterword(host, { getState, language, switchLanguage, save
     const plate = el('div', 'voyage-plate');
     const illustration = el('img');
     illustration.src = place.art; illustration.alt = ''; illustration.draggable = false; plate.append(illustration);
-    place.spots.forEach((name, i) => {
+    plate.append(createVoyageEffect(id, stop, {language: language(), animate}));
+    if (!showingResult) place.spots.forEach((name, i) => {
       const node = button('spot', i, tr(name), stop.seen.includes(i) || (i === 2 && stop.delivered) ? Check : MapPin, 'voyage-pin');
       node.style.left = place.coords[i][0] + '%';
       node.style.top = place.coords[i][1] + '%';
@@ -78,7 +84,7 @@ export function createAfterword(host, { getState, language, switchLanguage, save
     pan.append(map);
     const paper = el('section', 'voyage-paper');
     paper.setAttribute('aria-labelledby', 'voyage-caption');
-    const spot = voyage.spot, heading = el('h3', '', tr(spot !== null ? place.spots[spot] : place.name));
+    const spot = voyage.spot, heading = el('h3', '', tr(spot !== null ? place.spots[spot] : ['本次投递', 'Today’s delivery']));
     heading.id = 'voyage-caption';
     heading.tabIndex = -1;
     const actions = el('div', 'voyage-choices');
@@ -90,6 +96,7 @@ export function createAfterword(host, { getState, language, switchLanguage, save
       place.spots.forEach((label, i) => actions.append(button('spot', i, tr(label), MapPin)));
     } else if (spot < 2) {
       add('p', '', place.clues[spot]);
+      if (id === 'marsh' && spot === 1) paper.append(createTideGauge(stop, language(), tidePeriod, tideFeedback));
       if (spot === (id === 'observatory' ? 1 : 0)) add('p', 'voyage-trace', place.trace(state));
       actions.append(button('spot', (spot + 1) % 3, tr(place.spots[(spot + 1) % 3]), ArrowRight));
     } else if (stop.delivered) {
@@ -130,7 +137,9 @@ export function createAfterword(host, { getState, language, switchLanguage, save
     }
     if (message) {
       const feedback = el('p', 'voyage-feedback', tr(message === 'missing'
-        ? ['还缺一处现场记录。读过前两个地点的记录，再回来核对。', 'The route book is missing field notes. Read both of the other sites, then check again.'] : place.wrong));
+        ? (id === 'marsh' && !stop.seen.includes(1)
+          ? ['潮尺的记录还不齐。去潮尺旁记下清早和现在的两条水线。', 'The tide record is incomplete. At the gauge, mark the waterline at dawn and now.']
+          : ['还缺一处现场记录。读过前两个地点的记录，再回来核对。', 'The route book is missing field notes. Read both of the other sites, then check again.']) : place.wrong));
       feedback.setAttribute('role', 'status');
       paper.append(feedback);
     }
@@ -151,14 +160,27 @@ export function createAfterword(host, { getState, language, switchLanguage, save
     const {voyageAction: action, value} = node.dataset;
     const voyage = getState().voyage, stop = voyage.stops[voyage.port];
     let focus = '#voyage-caption';
+    let animate = false;
     message = '';
+    tideFeedback = '';
     switch (action) {
       case 'back': exit(); return;
       case 'backup': backup(); return;
       case 'language': switchLanguage(); render('[data-voyage-action="language"]'); return;
       case 'port': visit(voyage, value); focus = '#voyage-title'; break;
-      case 'spot': inspect(voyage, Number(value)); break;
+      case 'spot':
+        inspect(voyage, Number(value));
+        if (voyage.port === 'marsh' && voyage.spot === 1) tidePeriod = stop.tideReadings?.includes('dawn') ? 'now' : 'dawn';
+        break;
       case 'overview': voyage.spot = null; break;
+      case 'tide-period':
+        tidePeriod = value;
+        focus = '[data-voyage-action="tide-period"][data-value="' + value + '"]';
+        break;
+      case 'tide-notch':
+        tideFeedback = recordTide(voyage, tidePeriod, Number(value));
+        focus = '[data-voyage-action="tide-notch"][data-value="' + value + '"]';
+        break;
       case 'piece':
         changeDraft(voyage, value);
         focus = voyage.port === 'observatory' && stop.draft.length === 3 ? '[data-voyage-action="check"]' : '[data-voyage-action="piece"][data-value="' + value + '"]';
@@ -167,15 +189,23 @@ export function createAfterword(host, { getState, language, switchLanguage, save
       case 'check': {
         const result = checkDraft(voyage);
         if (result !== 'ready') { message = result; focus = '[data-voyage-action="check"]'; }
+        else animate = voyage.port === 'marsh' || voyage.port === 'observatory';
         break;
       }
-      case 'deliver': deliver(voyage, value); break;
+      case 'deliver':
+        deliver(voyage, value);
+        animate = voyage.port === 'observatory' && stop.delivered === value;
+        break;
       default: return;
     }
-    save(); chime(); render(focus);
+    save(); chime(); render(focus, animate);
   });
   return {
-    show() { message = ''; render('#voyage-title'); },
+    show() {
+      message = ''; tideFeedback = '';
+      tidePeriod = getState().voyage.stops.marsh.tideReadings?.includes('dawn') ? 'now' : 'dawn';
+      render('#voyage-title');
+    },
     hide() { message = ''; lastPort = ''; host.hidden = true; host.replaceChildren(); },
     escape() {
       const voyage = getState().voyage;

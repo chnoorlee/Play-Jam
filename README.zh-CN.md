@@ -90,7 +90,7 @@ $env:GAME_URL = 'http://127.0.0.1:5181'
 npm run test:e2e
 ```
 
-本地构建与 44 项规则和服务器测试通过。浏览器走完了主线三个结局，并在桌面和手机尺寸下从旧结局存档续玩南岸三站。覆盖范围和真机测试情况见[验证记录](docs/VERIFICATION.zh-CN.md)。
+规则和服务器测试覆盖主线、南岸机关与存档迁移。浏览器验证覆盖主线三个结局，以及桌面和手机上从旧结局存档续玩南岸三站的流程。各版实测结果见[验证记录](docs/VERIFICATION.zh-CN.md)。
 
 源码：`src/world.js` 场景与寻路；`src/story.js` 剧情与存档；`src/main.js` 交互；`src/audio.js` 合成声音；`src/style.css` 界面。修改后重新执行 `npm run build`，再用 `start.cmd` 运行新版本。
 

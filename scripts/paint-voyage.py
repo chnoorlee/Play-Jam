@@ -261,7 +261,11 @@ def marsh():
     p.poly([(621,218),(636,208),(650,217),(650,222),(621,223)],"#6d6556")
     p.line([(643,224),(650,307)],"#5a6259")
     p.ellipse(650,309,5,7,"#c27657")
-    # Flat-bottomed ferry in profile. A hand winch and line lead to the ramp.
+    # Paint the same ferry on its own layer so it can leave the dock.
+    water = p.image
+    key = (255, 0, 255)
+    p.image = Image.new("RGB", (W, H), key)
+    p.draw = ImageDraw.Draw(p.image)
     ferry=[(785,437),(878,426),(1014,421),(1060,412),(1041,447),(1000,456),(834,466),(800,456)]
     p.wash(ferry,"#494f4b","#947c5d",270,(1,-.07))
     p.poly([(788,436),(884,420),(1015,414),(1059,410),(1014,425),(833,443)],"#c7ac80")
@@ -273,8 +277,15 @@ def marsh():
     p.line([(945,298),(829,435)],"#727868")
     p.poly([(947,299),(972,305),(947,308)],"#b46f57")
     wheel(p,889,420,10,"#4e5a53","#c79163")
+    sprite = p.image.crop((*point(780,290), *point(1065,470)))
+    mask = np.any(np.asarray(sprite) != key, axis=2)
+    sprite.putalpha(Image.fromarray(mask.astype(np.uint8) * 255))
+    OUT.mkdir(parents=True, exist_ok=True)
+    sprite.save(OUT / "ferry.webp", quality=92, method=6)
+    p.image = water
+    p.draw = ImageDraw.Draw(water)
     quay(p,(1074,445),(1199,443),(1210,463),(1010,461),"#a28766","#665c50",19)
-    p.line([(891,419),(1008,449),(1059,446)],"#5b6255",2)
+    wheel(p,1061,442,9,"#4e5a53","#c79163")
     for x,y in [(1048,467),(1128,460),(1178,453)]:
         post(p,x,y,35,"#655e4d","#c0a77d",5)
     p.wash([(-5,486),(84,478),(167,502),(241,555),(403,574),(517,647),(630,678),(-5,678)],"#666f56","#b39b65",790,(.7,-1),28)
@@ -424,6 +435,21 @@ def observatory():
         y=346+16*math.sin(x/53)+p.r.gauss(0,7)
         if p.r.random()<.83:
             p.ellipse(x,y,p.r.uniform(.6,1.8),.7,"#d4bd96")
+    # The two possible destinations for the lamp sit on opposite sides of its lens.
+    p.poly([(966,340),(1001,332),(1021,332),(1041,326),(1120,323),(1137,326),
+            (1090,332),(1074,340),(1099,346),(1087,351),(1018,351),(998,346)], "#849694")
+    for x,y,w in [(995,340,19),(1034,334,27),(1035,346,37),(1071,330,16),(1067,343,16)]:
+        p.line([(x,y),(x+w,y-.7)],"#b0b2a4",1.1)
+    p.poly([(1084,342),(1115,338),(1127,339),(1090,345)],"#5c615f")
+    for x,y in [(1090,344),(1104,342),(1115,340)]:
+        p.line([(x,y-5),(x,y+4)],"#5a6363",1.5)
+    for x,y,s in [(784,321,.9),(811,316,1),(837,322,.8)]:
+        def house(points):
+            return [(x+u*s,y+v*s) for u,v in points]
+        p.poly(house([(-9,-7),(5,-6),(6,4),(-8,3)]),"#9c9480")
+        p.poly(house([(5,-6),(10,-10),(11,1),(6,4)]),"#757c76")
+        p.poly(house([(-12,-7),(-5,-14),(7,-13),(13,-10),(6,-5)]),"#58636a")
+        p.poly(house([(-6,-3),(-2,-3),(-2,1),(-6,1)]),"#606c6b")
     p.wash([(-5,394),(56,374),(118,347),(186,331),(256,338),(309,326),
             (381,326),(459,296),(510,283),(581,276),(637,269),(696,278),
             (742,307),(770,347),(857,364),(967,365),(1024,383),(1204,363),

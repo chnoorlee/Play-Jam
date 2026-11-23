@@ -1,0 +1,31 @@
+.tide-gauge { width: min(100%, 34rem); margin: 8px 0; }
+.tide-periods { display: flex; gap: 3px; margin-bottom: 4px; }
+.tide-periods button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 3px 9px; border: 1px solid #967e59; color: #314544; background: #faf0d9; }
+.tide-periods button[aria-pressed=true] { background: #314e53; color: #fff5db; }
+.tide-gauge .tide-view {
+  position: relative; height: 176px; overflow: hidden; isolation: isolate;
+  border-inline: 2px solid #998967;
+  background: linear-gradient(#e5e2c05c, #b8c8a64a), url('./art/voyage/marsh.webp') 57% 20% / 175% auto;
+}
+.tide-view[data-period=dawn] { background: repeating-linear-gradient(171deg,#bfac8242 0 1px,transparent 1px 8px), #dfd1ae; }
+.tide-view::before, .tide-view::after { content: ""; position: absolute; left: 0; right: 0; pointer-events: none; }
+.tide-view::before {
+  inset-block: var(--water-line) 0;
+  background: linear-gradient(#588783a8,#477278d9), url('./art/voyage/marsh.webp') 72% 66% / 190% auto;
+}
+.tide-view::after {
+  top: calc(var(--water-line) - 2px); height: 5px; background-color: #f9f3d8;
+  clip-path: polygon(0 30%,9% 5%,23% 40%,32% 0,50% 30%,64% 0,76% 45%,83% 0,97% 24%,100% 15%,100% 70%,87% 78%,71% 86%,50% 66%,32% 94%,21% 76%,8% 100%,0 80%);
+}
+.tide-view[data-period=dawn]::before { background: repeating-linear-gradient(176deg,#99895d25 0 2px,#c0ad8240 2px 7px),#cbb991; }
+.tide-view[data-period=dawn]::after { background-color: #4e5347; }
+.tide-staff {
+  display: grid; grid-template-rows: repeat(4, 44px); position: absolute; z-index: 1; inset-block: 0; left: 22%; width: 60px;
+  border-inline: 2px solid #66523b; background: repeating-linear-gradient(89deg,#71583d21 0 1px, transparent 2px 8px),#e3c795;
+}
+.tide-staff button { width: 100%; min-height: 44px; border: 0; background: transparent; position: relative; text-align: left; padding-inline: 6px 15px; color: #342e24; font: 700 21px var(--serif); }
+.tide-staff button::after { content: ""; position: absolute; right: 0; top: calc(50% - 1px); width: 27%; border-block-start: 2px solid currentColor; }
+.tide-staff button[data-recorded=true] { color: #823f24; box-shadow: inset 3px 0 currentColor; }
+.tide-staff button:hover { background: #fff7db70; }
+.tide-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.voyage-paper .tide-note { margin: 4px 0; font-size: 14px; }

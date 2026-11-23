@@ -32,7 +32,7 @@
 .voyage-pan { overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; container-type: size; }
 .voyage-landscape { width: max(100%,177.778cqh); min-width: 640px; height: 100%; position: relative; overflow: clip; }
 .voyage-plate { position: absolute; width: 100%; aspect-ratio: 16 / 9; top: 55%; transform: translateY(-55%); }
-.voyage-landscape img { width: 100%; height: 100%; display: block; }
+.voyage-plate > img { width: 100%; height: 100%; display: block; }
 .voyage-pin { position: absolute; transform: translate(-50%,-50%); border-radius: 3px; white-space: nowrap;
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 11px;
   color: #fff5dd; background: #143236ed; border: 1px solid #f7e9bf; box-shadow: 0 2px 6px #15323580;
@@ -67,4 +67,89 @@
 @media (max-height: 530px) {
   .voyage { overflow-y: auto; grid-template-rows: auto auto minmax(220px,1fr) auto; }
   .voyage-paper { max-height: none; }
+}
+@media (max-width: 620px) and (orientation: portrait), (pointer: coarse) and (orientation: portrait) {
+  .voyage:is([data-view="overview"], [data-view="outcome"]) {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-pan {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    overflow: hidden;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-landscape {
+    width: 100%;
+    min-width: 0;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-plate {
+    inset: 0;
+    transform: none;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-paper {
+    max-height: none;
+    padding: 18px 16px max(16px, env(safe-area-inset-bottom));
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-pin {
+    justify-content: center;
+    max-width: 23%;
+    min-width: 44px;
+    gap: 3px;
+    padding: 3px 5px;
+    font-size: 12px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-pin svg { width: 13px; }
+  .voyage[data-view="overview"] .voyage-choices {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid #bcad8e;
+    margin-top: 14px;
+  }
+  .voyage[data-view="overview"] .voyage-choices button {
+    justify-content: start;
+    gap: 10px;
+    padding: 9px 3px;
+    border: 0;
+    border-bottom: 1px solid #bcad8e;
+    border-radius: 0;
+    background: transparent;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 650px) {
+  .voyage:is([data-view="overview"], [data-view="outcome"]) {
+    grid-template: auto auto minmax(0, 1fr) / minmax(0, 58fr) minmax(0, 42fr);
+  }
+  .voyage-head, .voyage-route { grid-column: 1 / -1; }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-pan {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-landscape {
+    width: min(100cqw, 177.777cqh);
+    min-width: 0;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-plate {
+    inset: 0;
+    transform: none;
+  }
+  .voyage:is([data-view="overview"], [data-view="outcome"]) .voyage-paper {
+    max-height: none;
+    padding: 12px;
+    border-top: 0;
+    border-left: 3px double #ad966c;
+  }
+  .voyage[data-view="overview"] .voyage-pin {
+    max-width: 25%;
+    min-width: 44px;
+    justify-content: center;
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: normal;
+  }
 }
