@@ -1,6 +1,7 @@
 import { createIcons, Mail, BookOpen, Volume2, VolumeX, Pause, Play, Eclipse, ArrowLeftRight, ArrowUpRight, ArrowRight, MessageCircle, X, RotateCw, Check, Flower2, Clock3, TrainFront, Feather, Download, Settings2, ZoomIn, ZoomOut, Scan, Lightbulb, Upload, ChevronRight, ArrowUp } from 'lucide';
 import { createWorld } from './world.js';
 import { createScenes, sceneForAnchor } from './scenes.js';
+import { createStationBoard } from './station-board.js';
 import { createState, normalizeSave, getChapter, getObjective, getJournal, getHint, getReceipts, interact, choose, setPhase, adjustDial, adjustMirror, getPuzzle, getEnding } from './story.js';
 import { createAudio } from './audio.js';
 import { getLanguage, setLanguage, localize, t } from './i18n.js';
@@ -165,6 +166,7 @@ function displayDialogue(value) {
   $('#dialogue').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => act(button.dataset.action)));
   if (value.puzzle) renderPuzzle(value.puzzle);
   if (value.assembly) renderAssembly();
+  if (value.stationBoard) $('.dialogue-text').before(createStationBoard(value.stationBoard, true));
   if (value.receipt) {
     const receipt = getReceipts(state).find(item => item.id === value.receipt);
     $('#puzzle-slot').innerHTML = `<div class="keepsake">${icon(missions[value.receipt].glyph)}<div><small>邮包里的纪念物</small><strong>${escape(receipt.keepsake)}</strong></div><span class="receipt-seal">已送达</span></div>`;
@@ -283,7 +285,7 @@ function showJournal(tab = journalTab) {
   journalTab = ['clues', 'deliveries', 'receipts'].includes(tab) ? tab : 'clues';
   const entries = getJournal(state);
   const receipts = getReceipts(state);
-  const content = journalTab === 'clues' ? entries.map(entry => `<article class="journal-entry"><h3>${escape(entry.title)}</h3><p>${escape(entry.body)}</p></article>`).join('') : journalTab === 'receipts' ? receipts.length ? receipts.map(receipt => `<article class="journal-entry receipt-entry"><span class="receipt-seal">已送达</span><h3>${escape(receipt.title)}</h3><p>${escape(receipt.body)}</p><div class="keepsake">${icon(missions[receipt.id].glyph)}<strong>${escape(receipt.keepsake)}</strong></div></article>`).join('') : '<p class="empty-state">邮包的这一格还空着。第一封信送到以后，这里就会有回音。</p>' : Object.entries(missions).map(([id, mission]) => `<article class="mission-row ${state.solved[id] ? 'delivered' : ''}">${icon(state.solved[id] ? 'check' : mission.glyph)}<div><h3>${escape(mission.place)} · ${escape(mission.title)}</h3><p>${state.solved[id] ? `已送达 · ${escape(receipts.find(receipt => receipt.id === id).recipient)}` : escape(id === 'platform' ? `邮戳 ${Number(state.stamps.present) + Number(state.stamps.echo)} / 2` : state.clues.includes(id) ? '信件已读，等待抵达' : '还有一封未拆的信')}</p></div>${state.solved[id] ? '' : `<button class="icon-button" data-hint="${id}" aria-label="查看${escape(mission.place)}线索" data-tooltip="线索">${icon('lightbulb')}</button><button class="icon-button" data-track="${id}" aria-label="前往${escape(mission.place)}" data-tooltip="前往">${icon('arrow-up-right')}</button>`}</article>`).join('');
+  const content = journalTab === 'clues' ? entries.map(entry => `<article class="journal-entry"><h3>${escape(entry.title)}</h3><p>${escape(entry.body)}</p></article>`).join('') : journalTab === 'receipts' ? receipts.length ? receipts.map(receipt => `<article class="journal-entry receipt-entry"><span class="receipt-seal">已送达</span><h3>${escape(receipt.title)}</h3><p>${escape(receipt.body)}</p><div class="keepsake">${icon(missions[receipt.id].glyph)}<strong>${escape(receipt.keepsake)}</strong></div></article>`).join('') : '<p class="empty-state">邮包的这一格还空着。第一封信送到以后，这里就会有回音。</p>' : Object.entries(missions).map(([id, mission]) => `<article class="mission-row ${state.solved[id] ? 'delivered' : ''}">${icon(state.solved[id] ? 'check' : mission.glyph)}<div><h3>${escape(mission.place)} · ${escape(mission.title)}</h3><p>${state.solved[id] ? `已送达 · ${escape(receipts.find(receipt => receipt.id === id).recipient)}` : escape(id === 'platform' ? `站牌记录 ${Number(state.stamps.present) + Number(state.stamps.echo)} / 2` : state.clues.includes(id) ? '信件已读，等待抵达' : '还有一封未拆的信')}</p></div>${state.solved[id] ? '' : `<button class="icon-button" data-hint="${id}" aria-label="查看${escape(mission.place)}线索" data-tooltip="线索">${icon('lightbulb')}</button><button class="icon-button" data-track="${id}" aria-label="前往${escape(mission.place)}" data-tooltip="前往">${icon('arrow-up-right')}</button>`}</article>`).join('');
   $('#journal').innerHTML = `<div class="modal-title"><h2 id="journal-title">投递手记</h2><button class="icon-button" data-close aria-label="关闭信笺簿">${icon('x')}</button></div><p class="journal-subtitle">许渡的旧邮包 · 回信 ${receipts.length} / 3 · 纪念物 ${receipts.length} / 3</p><div class="journal-tabs" role="tablist" aria-label="手记分类">${[['clues', '信笺'], ['deliveries', '投递'], ['receipts', '回信']].map(([id, title]) => `<button role="tab" id="tab-${id}" aria-controls="journal-panel" aria-selected="${journalTab === id}" data-tab="${id}">${title}${id === 'receipts' ? `<span>${receipts.length}</span>` : ''}</button>`).join('')}</div><div id="journal-panel" role="tabpanel" aria-labelledby="tab-${journalTab}">${content}</div>`;
   $('#journal [data-close]').addEventListener('click', closeModal);
   $('#journal').querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => { showJournal(button.dataset.tab); button = $(`#tab-${journalTab}`); button.focus(); }));
@@ -487,7 +489,7 @@ try {
       const id = typeof anchor === 'string' ? anchor : anchor?.id;
       near = id;
       $('#interact-button').hidden = !id;
-      const names = { keeper: '与沈伯交谈', letter: '拾起家书', clock: '查看钟楼', 'seed-note': '翻开种植手记', greenhouse: '查看温室', platform: '打开站台信箱', 'present-stamp': '拾起半枚邮戳', 'echo-stamp': '拾起半枚邮戳', final: '查看邮局的灯' };
+      const names = { keeper: '与沈伯交谈', letter: '拾起家书', clock: '查看钟楼', 'seed-note': '翻开种植手记', greenhouse: '查看温室', platform: '打开站台信箱', 'present-stamp': '查看旧站牌', 'echo-stamp': '查看旧站牌', final: '查看邮局的灯' };
       $('#interact-button span').textContent = names[id] || '查看';
       if (getLanguage() === 'en') localize($('#interact-button'));
     },

@@ -31,6 +31,7 @@ function makePigmentTile() {
   texture.colorSpace=THREE.SRGBColorSpace;
   return texture;
 }
+const stationBoardSite = { name: '旧站牌', x: -1, z: 11, icon: '◇' };
 const ANCHORS = {
   keeper: { name: '守夜人', x: 0, z: 2.5, icon: '◇' },
   letter: { name: '未寄出的信', x: -8, z: -3.8, icon: '✉' },
@@ -38,8 +39,8 @@ const ANCHORS = {
   'seed-note': { name: '园丁的手记', x: 7.6, z: -5.5, icon: '✉' },
   greenhouse: { name: '玻璃温室', x: 10, z: -2.8, icon: 'Ⅱ' },
   platform: { name: '末班站台', x: 3, z: 9.5, icon: 'Ⅲ' },
-  'present-stamp': { name: '此刻的邮戳', x: 7, z: 11, icon: '◇', phase: 'present' },
-  'echo-stamp': { name: '回声的邮戳', x: -1, z: 11, icon: '◇', phase: 'echo' },
+  'present-stamp': { ...stationBoardSite, phase: 'present' },
+  'echo-stamp': { ...stationBoardSite, phase: 'echo' },
   final: { name: '最后的投递', x: 0, z: -0.1, icon: '✉' },
 };
 
@@ -550,15 +551,11 @@ export function createWorld(container, callbacks = {}) {
   }
   box(2.94,0.67,0.11,'navy',3.05,2.62,10.77);
   const stationSign=sign('末 班 · 无 人',2.77,0.54,3.05,2.62,10.84,'#e8cc96','#334950');
-  const presentStamp=new THREE.Group();presentStamp.position.set(7,0.23,11);scene.add(presentStamp);
-  const echoStamp=new THREE.Group();echoStamp.position.set(-1,0.23,11);scene.add(echoStamp);
-  for(const [group,c] of [[presentStamp,'gold'],[echoStamp,'#b2b0e4']]) {
-    cylinder(0.32,0.42,0.65,'stone',0,0.3,0,group);
-    cylinder(0.18,0.24,0.11,c,0,0.69,0,group);
-    cylinder(0.06,0.08,0.22,'dark',0,0.84,0,group);
-    sphere(0.105,c,0,1.0,0,group);
+  for(const offset of [-0.56,0.56]) {
+    box(0.10,1.84,0.10,'wood',stationBoardSite.x+offset,1.03,stationBoardSite.z);
   }
-  echoStamp.visible=false;
+  box(1.52,0.85,0.12,'navy',stationBoardSite.x,1.62,stationBoardSite.z);
+  const platformBoard=sign('邮务通告',1.40,0.74,stationBoardSite.x,1.62,stationBoardSite.z+0.07);
 
   function bench(x,z,rotation=0) {
     const group=new THREE.Group();group.position.set(x,0.22,z);group.rotation.y=rotation;scene.add(group);
@@ -665,7 +662,7 @@ export function createWorld(container, callbacks = {}) {
 
   // Bake static architecture into material batches; animated objects retain their own transforms.
   const animatedObjects=new Set([sea,clockFace,letterModel,seal,seedNoteModel,...stationLanterns]);
-  for(const root of [flag,clockHands,gardenBlooms,presentStamp,echoStamp,...boats.map(boat=>boat.group)])root.traverse(object=>animatedObjects.add(object));
+  for(const root of [flag,clockHands,gardenBlooms,...boats.map(boat=>boat.group)])root.traverse(object=>animatedObjects.add(object));
   scene.traverse(object=>{if(object.material===glass)object.castShadow=false;});
   animatedObjects.forEach(object=>{if(object.isMesh)object.castShadow=false;});
   const batches=new Map(),staticMeshes=[];
@@ -1171,7 +1168,8 @@ export function createWorld(container, callbacks = {}) {
     ].map(([color,target])=>({color,start:color.clone(),target:new THREE.Color(target)}));
     if(reducedMotion){colors.forEach(tween=>tween.color.copy(tween.target));phaseTransition=null;scene.fog.color.copy(scene.background);}
     else phaseTransition={started:performance.now(),colors};
-    presentStamp.visible=!echo;echoStamp.visible=echo;path=[];pending=null;destination.visible=false;
+    platformBoard.userData.setText(echo?'行车时刻':'邮务通告');
+    path=[];pending=null;destination.visible=false;
     container.dataset.phase=phase;
   }
   return {

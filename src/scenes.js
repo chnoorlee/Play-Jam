@@ -1,4 +1,5 @@
-import { ArrowLeft, Clock3, Flower2, Lamp, Mail, MessageCircle, NotebookPen, Stamp, createElement } from 'lucide';
+import { ArrowLeft, Clock3, Flower2, Lamp, Mail, MessageCircle, NotebookPen, Search, createElement } from 'lucide';
+import { createStationBoard } from './station-board.js';
 import shen from './art/cast/shen.webp';
 import cao from './art/cast/cao.webp';
 import ye from './art/cast/ye.webp';
@@ -51,8 +52,8 @@ const scenes = {
     actions: [
       { id: 'lan', label: '阿岚', icon: MessageCircle, position: [77, 72] },
       { id: 'platform', label: '转寄信箱', icon: Mail, position: [37, 62] },
-      { id: 'present-stamp', label: '站牌下的邮戳', icon: Stamp, position: [16, 57], phase: 'present' },
-      { id: 'echo-stamp', label: '长椅下的邮戳', icon: Stamp, position: [52, 69], phase: 'echo' },
+      { id: 'present-stamp', label: '旧站牌', icon: Search, position: [18, 66], phase: 'present' },
+      { id: 'echo-stamp', label: '旧站牌', icon: Search, position: [18, 66], phase: 'echo' },
     ],
   },
 };
@@ -89,6 +90,12 @@ export function createScenes(host, { onAction, onExit }) {
   actor.draggable = false;
   actor.src = shen;
 
+  const stationFraming = document.createElement('div');
+  stationFraming.className = 'station-framing';
+  const stationPainting = document.createElement('div');
+  stationPainting.className = 'station-painting';
+  stationFraming.append(stationPainting);
+
   const title = document.createElement('h2');
   title.id = 'scene-title';
   title.className = 'scene-title';
@@ -107,7 +114,7 @@ export function createScenes(host, { onAction, onExit }) {
   actionList.setAttribute('aria-label', '场景调查');
 
   host.setAttribute('aria-labelledby', title.id);
-  host.replaceChildren(image, light, actor, title, exit, actionList);
+  host.replaceChildren(image, stationFraming, light, actor, title, exit, actionList);
 
   let current = null;
   let activeState;
@@ -135,6 +142,16 @@ export function createScenes(host, { onAction, onExit }) {
     const scene = scenes[current];
     const backdrop = phase === 'present' && scene.presentBackdrop ? scene.presentBackdrop : scene.backdrop;
     if (image.getAttribute('src') !== backdrop) image.src = backdrop;
+
+    if (current === 'station') {
+      const board = createStationBoard(phase);
+      board.addEventListener('click', () => onAction(phase + '-stamp'));
+      const restoreFocus = stationPainting.contains(document.activeElement);
+      stationPainting.replaceChildren(board);
+      if (restoreFocus) board.focus({ preventScroll: true });
+    } else {
+      stationPainting.replaceChildren();
+    }
 
     const focused = document.activeElement;
     let currentPhaseAction;

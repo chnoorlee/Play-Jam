@@ -311,7 +311,7 @@ test('platform reconstruction rejects wrong order, ignores duplicates and permit
   assert.deepEqual(state.platformOrder, ['south']);
   for (const fragment of ['north', 'closed', 'reunion']) choose(state, `sequence:platform:${fragment}`);
   assert.equal(getPuzzle(state, 'platform').ready, false);
-  assert.equal(choose(state, 'resolve:platform').title, '地址读反了');
+  assert.equal(choose(state, 'resolve:platform').title, '退回的转寄单');
   choose(state, 'decision:platform:wait');
   assert.equal(state.solved.platform, false);
   choose(state, 'sequence:platform:reset');
@@ -329,9 +329,50 @@ test('selecting the first stamp piece at every step cannot solve the forwarding 
   let desk = choose(state, 'resolve:platform');
   const tray = desk.choices.map(choice => choice.action);
   for (let step = 0; step < 4; step++) desk = choose(state, desk.choices[0].action);
-  assert.equal(desk.title, '地址读反了');
+  assert.equal(desk.title, '退回的转寄单');
   assert.equal(getPuzzle(state, 'platform').ready, false);
   assert.deepEqual(choose(state, 'sequence:platform:reset').choices.map(choice => choice.action), tray);
+});
+
+test('the board can be reread in either order and only recorded evidence appears in the journal', () => {
+  const state = begin();
+  setPhase(state, 'echo');
+  assert.equal(interact(state, 'present-stamp').stationBoard, undefined);
+  const view = interact(state, 'echo-stamp');
+  assert.equal(view.stationBoard, 'echo');
+  assert.equal(state.stamps.echo, false);
+  assert.ok(view.choices.some(choice => choice.action === 'stamp:echo'));
+  choose(state, 'stamp:echo');
+  assert.equal(interact(state, 'echo-stamp').stationBoard, 'echo');
+  const notes = getJournal(state).find(entry => entry.title.includes('站牌'));
+  assert.match(notes.body, /南岸/);
+  assert.doesNotMatch(notes.body, /北站/);
+  setPhase(state, 'present');
+  assert.equal(interact(state, 'present-stamp').stationBoard, 'present');
+  choose(state, 'stamp:present');
+  assert.match(getJournal(state).find(entry => entry.title === notes.title).body, /北站/);
+});
+
+test('the desk waits for all four fields before evaluating the route and restores even incorrect drafts', () => {
+  let state = begin();
+  choose(state, 'stamp:present');
+  setPhase(state, 'echo');
+  choose(state, 'stamp:echo');
+  const correct = choose(state, 'sequence:platform:north');
+  choose(state, 'sequence:platform:reset');
+  const incorrect = choose(state, 'sequence:platform:pier');
+  assert.equal(incorrect.text, correct.text);
+  assert.equal(incorrect.title, correct.title);
+  choose(state, 'sequence:platform:delayed');
+  state = normalizeSave(state);
+  assert.deepEqual(state.platformOrder, ['pier', 'delayed']);
+  choose(state, 'sequence:platform:south');
+  const rejected = choose(state, 'sequence:platform:reunion');
+  assert.match(rejected.text, /站牌/);
+  assert.doesNotMatch(rejected.text, /北站|停运|南岸|重逢/);
+  assert.deepEqual(rejected.choices.map(choice => choice.action), ['sequence:platform:reset', 'close']);
+  choose(state, 'sequence:platform:north');
+  assert.equal(state.platformOrder.length, 4);
 });
 
 test('the mirror solution agrees with the light diagram and is revealed in stages', () => {
@@ -393,7 +434,7 @@ test('objectives follow the player-selected thread rather than always demanding 
   assert.doesNotMatch(getObjective(state), /钟楼/);
   choose(state, 'stamp:present');
   assert.equal(state.activeMission, 'platform');
-  assert.match(getObjective(state), /邮戳/);
+  assert.match(getObjective(state), /站牌/);
   const loaded = normalizeSave(structuredClone(state));
   assert.equal(loaded.activeMission, 'platform');
   preparePlatform(state);
@@ -450,7 +491,7 @@ test('partial new saves retain reconstruction and discard invalid duplicate prog
   });
   assert.deepEqual(loaded.platformOrder, ['south', 'north']);
   assert.deepEqual(loaded.deliveryOrder, []);
-  assert.match(choose(loaded, 'resolve:platform').text, /次序/);
+  assert.match(choose(loaded, 'resolve:platform').title, /补一个地址/);
   choose(loaded, 'sequence:platform:reset');
   for (const fragment of ['north', 'closed', 'south', 'reunion']) choose(loaded, `sequence:platform:${fragment}`);
   choose(loaded, 'decision:platform:wait');

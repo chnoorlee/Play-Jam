@@ -32,19 +32,21 @@ test('English clock and mirror hints solve the puzzle from every possible starti
   }
 });
 
-test('English covers missing stamps, partially or incorrectly assembled addresses, and the journal', () => {
+test('English covers each station board, missing copies, incorrect addresses and the journal', () => {
   const state = createState();
   choose(state, 'begin');
   assertEnglish(getObjective(state));
   for (const phase of ['present', 'echo']) {
     state.phase = phase;
+    assertEnglish(interact(state, phase + '-stamp'));
     assertEnglish(interact(state, 'platform'));
     assertEnglish(getHint(state, 'platform', 3));
     assertEnglish(choose(state, 'stamp:' + phase));
+    assertEnglish(interact(state, phase + '-stamp'));
     assertEnglish(getJournal(state));
   }
   assertEnglish(interact(state, 'platform'));
-  for (const token of ['closed', 'north', 'south', 'reunion', 'reset', 'north', 'closed', 'south', 'reunion']) {
+  for (const token of ['north', 'delayed', 'pier', 'reunion', 'reset', 'north', 'closed', 'south', 'reunion']) {
     assertEnglish(choose(state, 'sequence:platform:' + token));
     assertEnglish(getHint(state, 'platform', 3));
   }
@@ -120,7 +122,7 @@ test('discovery hints in both languages reveal only the next available field ste
   assert.match(getHint(state, 'greenhouse', 2), /回声/);
   choose(state, 'stamp:present');
   for (const tier of [1, 2, 3]) {
-    assert.match(getHint(state, 'platform', tier), /长椅/);
+    assert.match(getHint(state, 'platform', tier), /站牌/);
     assertEnglish(getHint(state, 'platform', tier));
   }
 });

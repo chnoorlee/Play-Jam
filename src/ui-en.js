@@ -59,8 +59,13 @@ const strings = {
   "温室的三面镜": "Three mirrors",
   "种植手记": "Growing notes",
   "转寄信箱": "Forwarding box",
-  "站牌下的邮戳": "Postmark under the sign",
-  "长椅下的邮戳": "Postmark under the bench",
+  "旧站牌": "Station board",
+  "北站邮务处": "North Station Mail Office",
+  "停运通告": "Station closed",
+  "本站永久停止收寄。未投邮件请办理转寄。": "Mail service has closed permanently. Forward all undelivered letters.",
+  "北站行车时刻": "North Station departures",
+  "姐，南岸月台见。": "Sis, meet me on the South Bank platform.",
+  "小川": "Xiaochuan",
   "返回港湾": "Back to harbor",
   "场景调查": "Explore the scene",
   "守夜人": "Night watchman",
@@ -68,8 +73,8 @@ const strings = {
   "潮汐钟": "Tide clock",
   "园丁的手记": "Gardener’s notebook",
   "末班站台": "Last train platform",
-  "此刻的邮戳": "Present postmark",
-  "回声的邮戳": "Echo postmark",
+  "邮务通告": "Mail notice",
+  "行车时刻": "Departures",
   "最后的投递": "Final delivery",
   "余信：潮水中的邮局、钟楼、温室与旧站台": "The Last Post: a tidal harbor with a post office, clock tower, glasshouse and old platform",
   "潮 汐 邮 局": "TIDE POST",
@@ -88,7 +93,7 @@ const strings = {
   "翻开种植手记": "Read the growing notes",
   "查看温室": "Inspect the glasshouse",
   "打开站台信箱": "Open the forwarding box",
-  "拾起半枚邮戳": "Pick up the half postmark",
+  "查看旧站牌": "Read the station board",
   "查看邮局的灯": "Inspect the post office lamp",
   "查看": "Inspect",
 
@@ -189,7 +194,7 @@ function localize(source, translatePart) {
   const part = value => strings[value] ?? translatePart(value);
   let match;
   if ((match = /^已投递 (\d+) \/ 3 封信$/.exec(source))) return `${match[1]} of 3 letters delivered`;
-  if ((match = /^邮戳 (\d+) \/ 2$/.exec(source))) return `Postmarks ${match[1]} / 2`;
+  if ((match = /^站牌记录 (\d+) \/ 2$/.exec(source))) return `Board notes ${match[1]} / 2`;
   if ((match = /^与(.+)交谈$/.exec(source))) return `Talk to ${part(match[1])}`;
   if ((match = /^查看(.+)线索$/.exec(source))) return `Hints for the ${part(match[1])}`;
   if ((match = /^前往(.+)$/.exec(source))) return `Go to the ${part(match[1])}`;

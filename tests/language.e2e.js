@@ -110,6 +110,30 @@ async function play(page, url, mobile) {
       return { fitsWidth: rect.left >= -1 && rect.right <= innerWidth + 1, overflow: modal.scrollWidth > modal.clientWidth + 1 };
     });
     assert.deepEqual(layout, { fitsWidth: true, overflow: false });
+    await page.locator('#journal [data-close]').tap();
+    await enter('platform', 'station');
+    for (const viewport of [page.viewportSize(), {width: 667, height: 375}]) {
+      await page.setViewportSize(viewport);
+      await page.waitForFunction(({width, height}) =>
+        Math.abs(visualViewport.width - width) <= 1 && Math.abs(visualViewport.height - height) <= 1, viewport);
+      for (const [phase, evidence] of [['present', /North Station/i], ['echo', /South Bank/i]]) {
+        if (await page.locator('#scene-stage').getAttribute('data-scene-phase') !== phase) await page.locator('#phase-button').tap();
+        const board = await page.locator('.station-board--mounted').boundingBox();
+        await page.touchscreen.tap(board.x + board.width / 2, board.y + board.height / 2);
+        const face = page.locator('#dialogue .station-board--closeup[data-phase="' + phase + '"]');
+        await face.waitFor({state: 'visible', timeout: 10000});
+        assert.match(await face.innerText(), evidence);
+        await englishOnly(page, '#dialogue');
+        await face.scrollIntoViewIfNeeded();
+        const fits = await face.evaluate(doc => {
+          const box = doc.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && box.left >= -1 && box.right <= innerWidth + 1 &&
+            box.top >= -1 && box.bottom <= innerHeight + 1 && doc.scrollWidth <= doc.clientWidth + 1;
+        });
+        assert.ok(fits, phase + ' station document fits ' + JSON.stringify(viewport));
+        await closeDialog();
+      }
+    }
     assert.deepEqual(pageErrors, []);
     return;
   }
@@ -155,11 +179,20 @@ async function play(page, url, mobile) {
   await use('decision:greenhouse:share');
   await closeDialog();
   await enter('platform', 'station');
+  await englishOnly(page, '#scene-stage');
   await sceneAction('echo-stamp');
+  const face = page.locator('#dialogue .station-board--closeup');
+  assert.match(await face.innerText(), /South Bank/i);
+  await switchDialogue();
+  assert.match(await face.innerText(), /南岸/);
+  await switchDialogue();
+  await englishOnly(page, '#dialogue');
   await use('stamp:echo');
   await closeDialog();
   await page.locator('#phase-button').click();
   await sceneAction('present-stamp');
+  assert.match(await face.innerText(), /North Station/i);
+  await englishOnly(page, '#dialogue');
   await use('stamp:present');
   await closeDialog();
   await sceneAction('platform');
